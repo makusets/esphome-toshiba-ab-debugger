@@ -322,7 +322,6 @@ void TccLinkClimate::sync_from_received_state() {
 
 void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
   switch (frame->source) {
-    case 0x00:
     case TOSHIBA_MASTER:
       // status update
 
