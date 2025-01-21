@@ -10,7 +10,7 @@ Requires reader & writer circuit for the AB line: https://github.com/issalig/tos
 external_components:
   - source:
       type: git
-      url: https://github.com/muxa/esphome-tcc-link
+      url: https://github.com/makusets/esphome-tcc-link
 
 ```
 
@@ -18,8 +18,8 @@ external_components:
 
 ```yaml
 uart:
-  tx_pin: GPIO1
-  rx_pin: GPIO3
+  tx_pin: GPIO15
+  rx_pin: GPIO13
   baud_rate: 2400
   parity: EVEN
 
