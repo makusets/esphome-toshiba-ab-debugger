@@ -18,7 +18,7 @@ const uint32_t PACKET_MIN_WAIT_MILLIS = 200;
 const uint32_t FRAME_SEND_MILLIS_FROM_LAST_RECEIVE = 500;
 const uint32_t FRAME_SEND_MILLIS_FROM_LAST_SEND = 500;
 
-const uint8_t TOSHIBA_MASTER = 0x01;
+const uint8_t TOSHIBA_MASTER = 0x00;  //changed from 0X01 to reflect original issalig code
 const uint8_t TOSHIBA_REMOTE = 0x40;
 const uint8_t TOSHIBA_BROADCAST = 0xFE;
 const uint8_t TOSHIBA_REPORT = 0x52;
