@@ -354,7 +354,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
           tcc_state.cooling = (frame->data[STATUS_DATA_MODEPOWER_BYTE] & 0b00001000) >> 3;
           tcc_state.heating = (frame->data[STATUS_DATA_MODEPOWER_BYTE] & 0b00000001);
           // tcc_state.heating = (frame->data[3] & 0b0100) >> 2;
-          tcc_state.preheating = (frame->data[3] & 0b0100) >> 2;
+          // tcc_state.preheating = (frame->data[3] & 0b0100) >> 2;
 
           ESP_LOGD(TAG, "Mode: %02X, Cooling: %d, Heating: %d, Preheating: %d", tcc_state.mode, tcc_state.cooling,
                    tcc_state.heating, tcc_state.preheating);
@@ -391,7 +391,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
           // actuall will be delayed and will e reported via MASTER PARAMETER
           // tcc_state.cooling = (frame->data[7] & 0b1000) >> 3;
           // tcc_state.heating = (frame->data[7] & 0b0001);
-          tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
+          // tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
 
           ESP_LOGD(TAG, "Mode: %02X, Preheating: %d", tcc_state.mode, tcc_state.preheating);
 
@@ -422,7 +422,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
           //}
 
           tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
-          ESP_LOGD(TAG, "Mode: %02X, Preheating: %d", tcc_state.mode, tcc_state.preheating);
+          ESP_LOGD(TAG, "Mode: %02X, Target Temp: %d, Room Temp: %d, Fan: %d, Power: %d, Preheating: %d", tcc_state.mode, tcc_state.target_temp, tcc_state.room_temp, tcc_state.fan, tcc_state.power, tcc_state.preheating);
 
           sync_from_received_state();
 
@@ -442,6 +442,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
           tcc_state.room_temp =
               static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
           sync_from_received_state();
+          ESP_LOGD(TAG, "Room Temperature (from remote): %d", tcc_state.room_temp);
         }
       }
       break;
