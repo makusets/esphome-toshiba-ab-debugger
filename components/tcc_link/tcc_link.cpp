@@ -414,12 +414,12 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
               static_cast<float>(frame->data[STATUS_DATA_TARGET_TEMP_BYTE] & TEMPERATURE_DATA_MASK) /
                   TEMPERATURE_CONVERSION_RATIO -
               TEMPERATURE_CONVERSION_OFFSET;
-          // Removed reading room temperature from central unit as this is the temp of return duct, we only read room temp from remote, code below
-          // if (frame->data[STATUS_DATA_TARGET_TEMP_BYTE + 1] > 1) {
-          //  tcc_state.room_temp =
-          //      static_cast<float>(frame->data[STATUS_DATA_TARGET_TEMP_BYTE + 1]) / TEMPERATURE_CONVERSION_RATIO -
-          //      TEMPERATURE_CONVERSION_OFFSET;
-          //}
+         
+          if (frame->data[STATUS_DATA_TARGET_TEMP_BYTE + 1] > 1) {
+            tcc_state.room_temp =
+                static_cast<float>(frame->data[STATUS_DATA_TARGET_TEMP_BYTE + 1]) / TEMPERATURE_CONVERSION_RATIO -
+                TEMPERATURE_CONVERSION_OFFSET;
+          }
 
           tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
           ESP_LOGD(TAG, "Mode: %02X, Target Temp: %d, Room Temp: %d, Fan: %d, Power: %d, Preheating: %d", tcc_state.mode, tcc_state.target_temp, tcc_state.room_temp, tcc_state.fan, tcc_state.power, tcc_state.preheating);
