@@ -153,20 +153,25 @@ uint8_t to_tcc_fan(const climate::ClimateFanMode fan) {
   }
 }
 
+
+
+// Next function reports the climate action (what is actually doing) to ESPHome from state class
+
 climate::ClimateAction to_climate_action(const struct TccState *state) {
   if (state->power == 0)
     return climate::CLIMATE_ACTION_OFF;
 
   switch (state->mode) {
     case MODE_HEAT:
+      return climate::CLIMATE_ACTION_HEATING;   // modified to ensure it shows heating in thermostat
     case MODE_AUTO:
     case MODE_COOL:
-      if (state->cooling) {
-        return climate::CLIMATE_ACTION_COOLING;
-      } else if (state->heating) {
-        return climate::CLIMATE_ACTION_HEATING;
-      }
-      return climate::CLIMATE_ACTION_IDLE;
+//      if (state->cooling) {
+      return climate::CLIMATE_ACTION_COOLING;   // modified to ensure it shows cooling in thermostat,  my ac doesn't seem to report whether it's idle or not, at leat on cooling setting
+//      } else if (state->heating) {
+//        return climate::CLIMATE_ACTION_HEATING;
+//      }
+//      return climate::CLIMATE_ACTION_IDLE;
     case MODE_FAN_ONLY:
       return climate::CLIMATE_ACTION_FAN;
     case MODE_DRY:
@@ -175,6 +180,9 @@ climate::ClimateAction to_climate_action(const struct TccState *state) {
 
   return climate::CLIMATE_ACTION_IDLE;
 }
+
+
+// Next function reports the climate state (what is the setting) to ESPHome from state class
 
 climate::ClimateMode to_climate_mode(const struct TccState *state) {
   if (state->power == 0)
