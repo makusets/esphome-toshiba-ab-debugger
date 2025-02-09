@@ -84,7 +84,7 @@ const uint8_t MODE_HEAT = 0x01;
 const uint8_t MODE_COOL = 0x02;
 const uint8_t MODE_FAN_ONLY = 0x03;
 const uint8_t MODE_DRY = 0x04;
-const uint8_t MODE_AUTO = 0x05;
+const uint8_t MODE_AUTO = 0x06; // Changed from 5 to 6 to reflect my unit
 
 const uint8_t FAN_PEED_AUTO = 0x02;
 const uint8_t FAN_PEED_LOW = 0x05;
