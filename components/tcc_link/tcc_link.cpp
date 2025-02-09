@@ -441,8 +441,8 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
         if (frame->data[3] > 1) {
           tcc_state.room_temp =
               static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
-          sync_from_received_state();
           ESP_LOGD(TAG, "Room Temperature (from remote): %d", tcc_state.room_temp);
+          sync_from_received_state();
         }
       }
       break;
