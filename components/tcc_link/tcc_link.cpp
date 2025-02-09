@@ -244,7 +244,7 @@ TccLinkClimate::TccLinkClimate() {
   this->traits_.set_supports_two_point_target_temperature(false);
   this->traits_.set_visual_min_temperature(18);
   this->traits_.set_visual_max_temperature(29);
-  this->traits_.set_visual_temperature_step(0.5);
+  this->traits_.set_visual_temperature_step(1);  // changed to 1 as my AC doesn't support 0.5
 }
 
 climate::ClimateTraits TccLinkClimate::traits() { return traits_; }
