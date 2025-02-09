@@ -393,7 +393,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
           // tcc_state.heating = (frame->data[7] & 0b0001);
           // tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
 
-          ESP_LOGD(TAG, "Mode: %02X, Preheating: %d", tcc_state.mode, tcc_state.preheating);
+          ESP_LOGD(TAG, "Mode: %02X, Target Temp: %f, Preheating: %hu", tcc_state.mode, tcc_state.target_temp, tcc_state.preheating);
 
           sync_from_received_state();
 
@@ -422,7 +422,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
           }
 
           tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
-          ESP_LOGD(TAG, "Mode: %02X, Target Temp: %d, Room Temp: %d, Fan: %d, Power: %d, Preheating: %d", tcc_state.mode, tcc_state.target_temp, tcc_state.room_temp, tcc_state.fan, tcc_state.power, tcc_state.preheating);
+          ESP_LOGD(TAG, "Mode: %02X, Target Temp: %f, Room Temp: %f, Fan: %02X, Power: %hu, Preheating: %hu", tcc_state.mode, tcc_state.target_temp, tcc_state.room_temp, tcc_state.fan, tcc_state.power, tcc_state.preheating);
 
           sync_from_received_state();
 
@@ -441,7 +441,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
         if (frame->data[3] > 1) {
           tcc_state.room_temp =
               static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
-          ESP_LOGD(TAG, "Room Temperature (from remote): %d", tcc_state.room_temp);
+          ESP_LOGD(TAG, "Room Temperature (from remote): %f", tcc_state.room_temp);
           sync_from_received_state();
         }
       }
