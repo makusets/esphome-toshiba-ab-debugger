@@ -224,6 +224,7 @@ struct TccState {
   uint8_t vent;
   float room_temp = NAN;
   float target_temp = NAN;
+  float esp_sensor_temp = NAN;  # will store the temp read by the sensor on the esp board, which is configured through YAML
   uint8_t power;
   uint8_t cooling;
   uint8_t heating;
@@ -237,6 +238,7 @@ struct TccState {
     vent = src->vent;
     room_temp = src->room_temp;
     target_temp = src->target_temp;
+    target_temp = src->esp_sensor_temp;
     power = src->power;
     cooling = src->cooling;
     heating = src->heating;
@@ -290,6 +292,7 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
   binary_sensor::BinarySensor *connected_binary_sensor_{nullptr};
   switch_::Switch *vent_switch_{nullptr};
   sensor::Sensor *failed_crcs_sensor_{nullptr};
+  sensor::Sensor *esp_sensor_temp{nullptr};
   
   // callbacks
   CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
