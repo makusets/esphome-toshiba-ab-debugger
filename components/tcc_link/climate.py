@@ -1,7 +1,10 @@
-import esphome.codegen as cg
+// standard expressions defined by esphome to validate configuration and generate the code
+import esphome.codegen as cg   
 import esphome.config_validation as cv
+//
+
 from esphome import automation
-from esphome.components import climate, uart, binary_sensor, sensor, switch, text_sensor, template
+from esphome.components import climate, uart, binary_sensor, sensor, switch, text_sensor, template, i2c  //import the components that we will be using, including anything in the YAML that we access
 from esphome.const import (
     CONF_ID,
     CONF_NAME,
