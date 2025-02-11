@@ -224,7 +224,7 @@ struct TccState {
   uint8_t vent;
   float room_temp = NAN;
   float target_temp = NAN;
-  float esp_sensor_temp = NAN;  # will store the temp read by the sensor on the esp board, which is configured through YAML
+  float esp_sensor_temp = NAN;  // will store the temp read by the sensor on the esp board, which is configured through YAML
   uint8_t power;
   uint8_t cooling;
   uint8_t heating;
