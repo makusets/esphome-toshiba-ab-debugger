@@ -1,10 +1,14 @@
-// standard expressions defined by esphome to validate configuration and generate the code
+# standard expressions defined by esphome to validate configuration and generate the code
 import esphome.codegen as cg   
 import esphome.config_validation as cv
-//
 
+#import automation, seems standard practice:
 from esphome import automation
-from esphome.components import climate, uart, binary_sensor, sensor, switch, text_sensor, template, i2c  //import the components that we will be using, including anything in the YAML that we access
+
+#import the components that we will be using, including anything in the YAML that we access:
+from esphome.components import climate, uart, binary_sensor, sensor, switch, text_sensor, template, i2c
+
+#import constants the are in the YAML file:
 from esphome.const import (
     CONF_ID,
     CONF_NAME,
@@ -20,9 +24,11 @@ from esphome.const import (
     STATE_CLASS_MEASUREMENT,
 )
 
+#Checks that uart is correctly defined in the YAML as a requirement:
 DEPENDENCIES = ["uart"]
+
 AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch"]
-CODEOWNERS = ["@muxa"]
+CODEOWNERS = ["@muxa", "@theeuwke"]
 
 tcc_link_ns = cg.esphome_ns.namespace("tcc_link")
 
@@ -46,7 +52,7 @@ TccLinkOnDataReceivedTrigger = tcc_link_ns.class_(
 
 CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
     {
-        cv.GenerateID(): cv.declare_id(TccLinkClimate),
+        cv.GenerateID(): cv.declare_id(TccLinkClimate),  # We set the class for the component, TccLinkClimate, in this case
         cv.Optional(CONF_CONNECTED): binary_sensor.binary_sensor_schema(
             device_class = DEVICE_CLASS_CONNECTIVITY,
             entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
@@ -84,12 +90,14 @@ def validate_uart(config):
 
 FINAL_VALIDATE_SCHEMA = validate_uart
 
-async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+#next this setups and transforms the conf into C++ code to run as setup and loop
 
-    await cg.register_component(var, config)
-    await climate.register_climate(var, config)
-    await uart.register_uart_device(var, config)
+async def to_code(config): #standard syntax
+    var = cg.new_Pvariable(config[CONF_ID])  #standard syntax
+
+    await cg.register_component(var, config)   #standard syntax
+    await climate.register_climate(var, config)  #wait for the climate component to create
+    await uart.register_uart_device(var, config)  #wait for the uart device to create
 
     if CONF_CONNECTED in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_CONNECTED])
