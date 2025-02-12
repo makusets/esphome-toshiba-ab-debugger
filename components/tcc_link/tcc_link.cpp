@@ -502,7 +502,7 @@ void TccLinkClimate::loop() {
   // TODO: check if last_unconfirmed_command_ was not confirmed after a timeout
   // and log warning/error
 
-  ESP_LOGD(TAG, "Current temperature: %f", this->esp_sensor_temp_->state);  
+//  ESP_LOGD(TAG, "Current temperature: %f", this->esp_sensor_temp_->state);  
 
   if (!this->write_queue_.empty() && (millis() - last_received_frame_millis_) >= FRAME_SEND_MILLIS_FROM_LAST_RECEIVE &&
       (millis() - last_sent_frame_millis_) >= FRAME_SEND_MILLIS_FROM_LAST_SEND) {
