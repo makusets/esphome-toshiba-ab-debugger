@@ -320,8 +320,8 @@ void TccLinkClimate::sync_from_received_state() {
   //  changes++;
   //}
 
-  if (current_temperature != esp_sensor_temp_) {
-    current_temperature = esp_sensor_temp_;
+  if (current_temperature != esp_sensor_temp_->state) {
+    current_temperature = esp_sensor_temp_->state;
     changes++;
   }
   
