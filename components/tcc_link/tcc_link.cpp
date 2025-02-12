@@ -434,7 +434,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
           ESP_LOGD(TAG, "Mode: %02X, Target Temp: %f, Room Temp: %f, Fan: %02X, Power: %hu, Preheating: %hu", tcc_state.mode, tcc_state.target_temp, tcc_state.room_temp, tcc_state.fan, tcc_state.power, tcc_state.preheating);
           
           //added next line to pull room temp from BME sensor on esp board configured through YAML
-          tcc_state.room_temp = esp_sensor_temp;  // id of temp sensor created in YAML that will be used to incorporate current temp into the tcc component
+          tcc_state.room_temp = static_cast<float>(esp_sensor_temp);  // id of temp sensor created in YAML that will be used to incorporate current temp into the tcc component
 
           sync_from_received_state();
 
