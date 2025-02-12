@@ -80,7 +80,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             }
         ),
     }
-).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
+).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA).extend(sensor.sensor_schema())
 
 def validate_uart(config):
     uart.final_validate_device_schema(
@@ -106,6 +106,7 @@ async def to_code(config): #standard syntax
     if CONF_FAILED_CRCS in config:
         sens = await sensor.new_sensor(config[CONF_FAILED_CRCS])
         cg.add(var.set_failed_crcs_sensor(sens))
+        
 
     if CONF_VENT in config:
         sw = await switch.new_switch(config[CONF_VENT], var)
