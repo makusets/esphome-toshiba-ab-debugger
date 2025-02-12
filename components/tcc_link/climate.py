@@ -8,7 +8,7 @@ from esphome import automation
 #import the components that we will be using, including anything in the YAML that we access:
 from esphome.components import climate, uart, binary_sensor, sensor, switch, text_sensor, template
 
-#import constants the are in the YAML file:
+
 from esphome.const import (
     CONF_ID,
     CONF_NAME,
@@ -22,6 +22,9 @@ from esphome.const import (
     DEVICE_CLASS_CONNECTIVITY,
     ENTITY_CATEGORY_DIAGNOSTIC,
     STATE_CLASS_MEASUREMENT,
+    CONF_TEMPERATURE,
+    DEVICE_CLASS_TEMPERATURE,
+    UNIT_CELSIUS,
 )
 
 #Checks that uart is correctly defined in the YAML as a requirement:
@@ -82,7 +85,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             }
         ),
         cv.Optional(CONF_ESP_SENSOR_TEMP): sensor.sensor_schema(
-            # unit_of_measurement=UNIT_CELSIUS,
+            unit_of_measurement=UNIT_CELSIUS,
             accuracy_decimals=1,
             device_class=DEVICE_CLASS_TEMPERATURE,
             state_class=STATE_CLASS_MEASUREMENT,
