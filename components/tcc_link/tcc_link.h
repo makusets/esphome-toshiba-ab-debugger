@@ -238,7 +238,7 @@ struct TccState {
     vent = src->vent;
     room_temp = src->room_temp;
     target_temp = src->target_temp;
-    target_temp = src->esp_sensor_temp;
+    esp_sensor_temp = src->esp_sensor_temp;
     power = src->power;
     cooling = src->cooling;
     heating = src->heating;
@@ -265,7 +265,7 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
 
   void set_failed_crcs_sensor(sensor::Sensor *failed_crcs_sensor) { this->failed_crcs_sensor_ = failed_crcs_sensor; }
 
-  void set_esp_sensor_temp(sensor::Sensor *esp_sensor_temp) { this->esp_sensor_temp_ = esp_sensor_temp; }
+  // void set_esp_sensor_temp(sensor::Sensor *esp_sensor_temp) { this->esp_sensor_temp_ = esp_sensor_temp; }
 
   void send_command(struct DataFrame command);
 
