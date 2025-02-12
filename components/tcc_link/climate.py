@@ -86,7 +86,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             accuracy_decimals=1,
             device_class=DEVICE_CLASS_TEMPERATURE,
             state_class=STATE_CLASS_MEASUREMENT,
-        )
+        ),
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 
