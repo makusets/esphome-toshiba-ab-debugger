@@ -38,6 +38,8 @@ CONF_FAILED_CRCS = "failed_crcs"
 
 CONF_ON_DATA_RECEIVED = "on_data_received"
 
+CONF_ESP_SENSOR_TEMP = "esp_sensor_temp"
+
 TccLinkClimate =  tcc_link_ns.class_(
     "TccLinkClimate", climate.Climate, uart.UARTDevice, cg.Component
 )
