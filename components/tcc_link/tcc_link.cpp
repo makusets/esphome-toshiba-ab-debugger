@@ -347,7 +347,6 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
       switch (frame->opcode1) {
         case OPCODE_PING:
           log_data_frame("PING", frame);
-          break;
           // case OPCODE_ACK:
           // ESP_LOGD(TAG, " Command acknoledged");
           ESP_LOGD(TAG, "Retrieving esp temp");
