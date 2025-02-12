@@ -82,7 +82,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             }
         ),
         cv.Optional(CONF_ESP_SENSOR_TEMP): sensor.sensor_schema(
-            unit_of_measurement=UNIT_CELSIUS,
+            # unit_of_measurement=UNIT_CELSIUS,
             accuracy_decimals=1,
             device_class=DEVICE_CLASS_TEMPERATURE,
             state_class=STATE_CLASS_MEASUREMENT,
