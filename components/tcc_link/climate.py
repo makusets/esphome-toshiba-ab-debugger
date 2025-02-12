@@ -120,10 +120,6 @@ async def to_code(config): #standard syntax
         sens = await sensor.new_sensor(config[CONF_FAILED_CRCS])
         cg.add(var.set_failed_crcs_sensor(sens))
 
-    if CONF_FAILED_CRCS in config:
-        sens = await sensor.new_sensor(config[CONF_FAILED_CRCS])
-        cg.add(var.set_failed_crcs_sensor(sens))
-
     if CONF_VENT in config:
         sw = await switch.new_switch(config[CONF_VENT], var)
         cg.add(var.set_vent_switch(sw))
