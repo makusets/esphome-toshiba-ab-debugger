@@ -38,7 +38,7 @@ CONF_FAILED_CRCS = "failed_crcs"
 
 CONF_ON_DATA_RECEIVED = "on_data_received"
 
-CONF_ESP_SENSOR_TEMP = "esp_sensor_temp"
+CONF_ESP_SENSOR_TEMP = "esp_sensor_temp"  #grab esp_sensor_temp configured in YAML
 
 TccLinkClimate =  tcc_link_ns.class_(
     "TccLinkClimate", climate.Climate, uart.UARTDevice, cg.Component
@@ -81,6 +81,12 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
                 ),
             }
         ),
+        cv.Optional(CONF_ESP_SENSOR_TEMP): sensor.sensor_schema(
+            unit_of_measurement=UNIT_CELSIUS,
+            accuracy_decimals=1,
+            device_class=DEVICE_CLASS_TEMPERATURE,
+            state_class=STATE_CLASS_MEASUREMENT,
+        )
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 
