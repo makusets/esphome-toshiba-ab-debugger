@@ -124,6 +124,11 @@ async def to_code(config): #standard syntax
         sw = await switch.new_switch(config[CONF_VENT], var)
         cg.add(var.set_vent_switch(sw))
 
+    if CONF_ESP_SENSOR_TEMP in config:  #:= config.get(CONF_TEMPERATURE):
+        sens = await sensor.new_sensor(config[CONF_ESP_SENSOR_TEMP])
+        cg.add(var.set_esp_sensor_temp(sens))
+    
+
     if CONF_ON_DATA_RECEIVED in config:
         for on_data_received in config.get(CONF_ON_DATA_RECEIVED, []):
             data_trigger = cg.new_Pvariable(on_data_received[CONF_TRIGGER_ID], var)
