@@ -350,6 +350,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
           // case OPCODE_ACK:
           // ESP_LOGD(TAG, " Command acknoledged");
           ESP_LOGD(TAG, "Retrieving esp temp");
+          set_esp_sensor_temp();
           if (this->esp_sensor_temp_ != nullptr) {
           //  this->esp_sensor_temp_->publish_state();
             ESP_LOGD(TAG, "esp temp: %f", this->esp_sensor_temp_->state);
