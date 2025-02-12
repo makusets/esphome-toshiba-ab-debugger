@@ -315,11 +315,16 @@ void TccLinkClimate::sync_from_received_state() {
     changes++;
   }
 
-  if (current_temperature != tcc_state.room_temp) {
-    current_temperature = tcc_state.room_temp;
+  //if (current_temperature != tcc_state.room_temp) {
+  //  current_temperature = tcc_state.room_temp;
+  //  changes++;
+  //}
+
+  if (current_temperature != esp_sensor_temp) {
+    current_temperature = esp_sensor_temp;
     changes++;
   }
-
+  
   if (changes > 0) {
     this->publish_state();
   }
