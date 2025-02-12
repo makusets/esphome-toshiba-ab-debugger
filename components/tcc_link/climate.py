@@ -84,6 +84,8 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
                 ),
             }
         ),
+
+        #grab sensor from esp board, configured in yaml
         cv.Optional(CONF_ESP_SENSOR_TEMP): sensor.sensor_schema(
             unit_of_measurement=UNIT_CELSIUS,
             accuracy_decimals=1,
