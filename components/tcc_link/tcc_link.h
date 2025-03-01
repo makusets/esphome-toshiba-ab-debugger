@@ -263,8 +263,6 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
 
   void set_failed_crcs_sensor(sensor::Sensor *failed_crcs_sensor) { this->failed_crcs_sensor_ = failed_crcs_sensor; }
 
-  void set_esp_sensor_temp(sensor::Sensor *esp_sensor_temp) { this->esp_sensor_temp_ = esp_sensor_temp; } //function to fill the sensor with the ESP temperature
-
   void send_command(struct DataFrame command);
 
   bool control_vent(bool state);
@@ -292,7 +290,6 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
   binary_sensor::BinarySensor *connected_binary_sensor_{nullptr};
   switch_::Switch *vent_switch_{nullptr};
   sensor::Sensor *failed_crcs_sensor_{nullptr};
-  sensor::Sensor *esp_sensor_temp_{nullptr};
   
   // callbacks
   CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
