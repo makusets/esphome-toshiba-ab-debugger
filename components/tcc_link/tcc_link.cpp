@@ -464,7 +464,10 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
       break;
     case TOSHIBA_REMOTE:
       // command
-      if BME_temperature > 0 break;
+      if BME_temperature > 0 {
+        sync_from_received_state();
+        break;
+      }
       log_data_frame("REMOTE", frame);
       if (frame->opcode1 == OPCODE_TEMPERATURE) {
         // current temperature is reported by the remote
