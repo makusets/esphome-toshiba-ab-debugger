@@ -1,4 +1,9 @@
 #include "tcc_link.h"
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+
+
 
 namespace esphome {
 namespace tcc_link {
@@ -259,6 +264,10 @@ void TccLinkClimate::setup() {
   if (this->failed_crcs_sensor_ != nullptr) {
     this->failed_crcs_sensor_->publish_state(0);
   }
+  if (!bme.begin(0x76)) {  // Address 0x76 for BME280
+    ESP_LOGE(TAG, "Could not find a valid BME280 sensor, check wiring!");
+    while (1);
+  }
 }
 
 void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
@@ -335,6 +344,10 @@ void TccLinkClimate::sync_from_received_state() {
 }
 
 void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
+  float BME_temperature = bme.readTemperature();
+  ESP_LOGD(TAG, "BME280 Temperature: %f", BME_temperature);
+  tcc_state.room_temp = BME_temperature;
+
   switch (frame->source) {
     case TOSHIBA_MASTER:
       // status update
@@ -437,9 +450,8 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
 
           tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
           ESP_LOGD(TAG, "Mode: %02X, Target Temp: %f, Room Temp: %f, Fan: %02X, Power: %hu, Preheating: %hu", tcc_state.mode, tcc_state.target_temp, tcc_state.room_temp, tcc_state.fan, tcc_state.power, tcc_state.preheating);
-          
-          //added next line to pull room temp from BME sensor on esp board configured through YAML
-          //tcc_state.room_temp = esp_sensor_temp_->state;  // id of temp sensor created in YAML that will be used to incorporate current temp into the tcc component
+         
+         
 
           sync_from_received_state();
 
@@ -452,6 +464,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
       break;
     case TOSHIBA_REMOTE:
       // command
+      if BME_temperature > 0 break;
       log_data_frame("REMOTE", frame);
       if (frame->opcode1 == OPCODE_TEMPERATURE) {
         // current temperature is reported by the remote
@@ -498,11 +511,14 @@ bool TccLinkClimate::receive_data_frame(const struct DataFrame *frame) {
   return true;
 }
 
+
+// Next function is the main loop that reads the data from the AC unit and sends the data to the AC unit
+
 void TccLinkClimate::loop() {
   // TODO: check if last_unconfirmed_command_ was not confirmed after a timeout
   // and log warning/error
 
-//  ESP_LOGD(TAG, "Current temperature: %f", this->esp_sensor_temp_->state);  
+
 
   if (!this->write_queue_.empty() && (millis() - last_received_frame_millis_) >= FRAME_SEND_MILLIS_FROM_LAST_RECEIVE &&
       (millis() - last_sent_frame_millis_) >= FRAME_SEND_MILLIS_FROM_LAST_SEND) {
