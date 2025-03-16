@@ -1,7 +1,7 @@
 #include "tcc_link.h"
 
 
-Adafruit_BME280 bme; // I2C
+bme280_i2c bme; // I2C
 
 namespace esphome {
 namespace tcc_link {
