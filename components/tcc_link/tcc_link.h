@@ -5,8 +5,12 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/uart/uart.h"
+#include "esphome/components/bme280_i2c/bme280_i2c.h"
 #include <bitset>
 #include <queue>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
 
 namespace esphome {
 namespace tcc_link {
