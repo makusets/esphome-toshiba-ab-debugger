@@ -10,6 +10,7 @@ namespace tcc_link {
 
 static const char *const TAG = "tcc_link.climate";
 
+
 const LogString *opcode_to_string(uint8_t opcode) {
   switch (opcode) {
     case OPCODE_PING:
