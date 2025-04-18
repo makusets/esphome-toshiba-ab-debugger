@@ -87,8 +87,8 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             }
         ),
     }
-).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA).extend(i2c.CONFIG_SCHEMA)
-#need to include all the extended schemas that are used in the component
+).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
+
 
 def validate_uart(config):
     uart.final_validate_device_schema(
