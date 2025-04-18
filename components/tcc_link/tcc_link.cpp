@@ -261,6 +261,10 @@ void TccLinkClimate::setup() {
   if (this->failed_crcs_sensor_ != nullptr) {
     this->failed_crcs_sensor_->publish_state(0);
   }
+  if (this->bme280_sensor_ == nullptr) {
+    ESP_LOGE("TCC_LINK", "BME280 sensor not configured!");
+    return;
+  }
 }
 
 void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
