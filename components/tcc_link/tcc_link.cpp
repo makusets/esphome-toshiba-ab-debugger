@@ -566,13 +566,13 @@ void TccLinkClimate::loop() {
       // Query temperature every TEMP_QUERY_WAIT_MILLIS
     if (this->bme280_sensor_ != nullptr) {
       uint8_t data[8];
-      if (!this->read_bytes(BME280_REGISTER_MEASUREMENTS, data, 8)) {
+      if (bme280_sensor_->read_bytes(BME280_REGISTER_MEASUREMENTS, data, 8)) {
         ESP_LOGW(TAG, "Error reading registers.");
         this->status_set_warning();
         return;
       }
       int32_t t_fine = 0;
-      float const temperature = this->read_temperature_(data, &t_fine);
+      float const temperature = bme280_sensor_->read_temperature_(data, &t_fine);
       if (std::isnan(temperature)) {
         ESP_LOGW(TAG, "Invalid temperature, cannot read pressure & humidity values.");
         this->status_set_warning();
