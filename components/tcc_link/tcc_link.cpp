@@ -565,7 +565,7 @@ void TccLinkClimate::loop() {
   if (millis() - last_temp_query_millis >= TEMP_QUERY_WAIT_MILLIS) {
       // Query temperature every TEMP_QUERY_WAIT_MILLIS
     if (this->bme280_sensor_ != nullptr) {
-      float temperature = this->bme280_sensor_->read_temperature();
+      float temperature = this->bme280_sensor_->read_temperature_();
       ESP_LOGD("TCC_LINK", "BME280 Temperature: %.2f °C", temperature);
     }
     send_query_remote_temp_command();
