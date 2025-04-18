@@ -694,7 +694,6 @@ void TccLinkClimate::send_query_remote_temp_command() {
 }
 
 void TccLinkClimate::read_bme280_temperature() {
-  this->bme280_sensor_->set_i2c_address(0x76);
   if (this->bme280_sensor_ != nullptr) {
 //  if (1 == 1) {
     uint8_t temp_data[3];
