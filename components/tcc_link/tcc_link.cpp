@@ -698,10 +698,10 @@ void TccLinkClimate::read_bme280_temperature() {
 
   // Create an I2C device instance
   i2c::I2CDevice i2c_device;
-  i2c_device.set_address(0x76);  // Set the I2C address of the BME280 sensor
+  i2c_device.set_i2c_address(0x76);  // Set the I2C address of the BME280 sensor
 
   // Read 3 bytes of temperature data starting from register 0xFA
-  if (!i2c_device.read(0xFA, temp_data, 3)) {
+  if (!i2c_device.read(0xFA, temp_data)) {
     ESP_LOGW(TAG, "Failed to read temperature data from BME280 sensor.");
     return;
   }
