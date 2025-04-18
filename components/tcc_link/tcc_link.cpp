@@ -694,13 +694,16 @@ void TccLinkClimate::send_query_remote_temp_command() {
 
 void TccLinkClimate::read_bme280_temperature() {
   if (this->bme280_sensor_ != nullptr) {
-    // Read raw temperature data from BME280 registers
-    uint8_t temp_msb = this->bme280_sensor_->read_byte(0x76, 0xFA);  // MSB register
-    uint8_t temp_lsb = this->bme280_sensor_->read_byte(0x76, 0xFB);  // LSB register
-    uint8_t temp_xlsb = this->bme280_sensor_->read_byte(0x76, 0xFC); // XLSB register
+    uint8_t temp_data[3];
+
+    // Read 3 bytes of temperature data from the BME280 registers (0xFA, 0xFB, 0xFC)
+    if (!this->bme280_sensor_->read(0x76, 0xFA, temp_data, 3)) {
+      ESP_LOGW(TAG, "Failed to read temperature data from BME280 sensor.");
+      return;
+    }
 
     // Combine the raw temperature data into a 20-bit value
-    int32_t raw_temp = ((int32_t)temp_msb << 12) | ((int32_t)temp_lsb << 4) | ((int32_t)(temp_xlsb >> 4));
+    int32_t raw_temp = ((int32_t)temp_data[0] << 12) | ((int32_t)temp_data[1] << 4) | ((int32_t)(temp_data[2] >> 4));
 
     // Apply the BME280 temperature compensation formula
     // Replace these calibration values with the actual calibration data from your sensor
@@ -721,13 +724,12 @@ void TccLinkClimate::read_bme280_temperature() {
     if (!std::isnan(temperature)) {
       ESP_LOGD(TAG, "BME280 Temperature: %.2f °C", temperature);
     } else {
-      ESP_LOGW(TAG, "Failed to read temperature from BME280 sensor.");
+      ESP_LOGW(TAG, "Invalid temperature reading from BME280 sensor.");
     }
   } else {
     ESP_LOGW(TAG, "BME280 sensor is not configured.");
   }
 }
-
 
 
 void TccLinkClimate::control(const climate::ClimateCall &call) {
