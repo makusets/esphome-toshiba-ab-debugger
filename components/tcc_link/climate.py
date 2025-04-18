@@ -30,7 +30,7 @@ from esphome.const import (
 #Checks that uart is correctly defined in the YAML as a requirement:
 DEPENDENCIES = ["uart"]
 
-AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch"]
+AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch", "i2c", "bme280_i2c", "text_sensor", "template"]
 CODEOWNERS = ["@muxa", "@theeuwke"]
 
 tcc_link_ns = cg.esphome_ns.namespace("tcc_link")
