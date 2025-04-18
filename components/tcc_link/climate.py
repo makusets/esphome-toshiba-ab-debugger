@@ -6,7 +6,7 @@ import esphome.config_validation as cv
 from esphome import automation
 
 #import the components that we will be using, including anything in the YAML that we access:
-from esphome.components import climate, uart, i2c, binary_sensor, sensor, switch, text_sensor, template
+from esphome.components import climate, uart, i2c, bme280_i2c, binary_sensor, sensor, switch, text_sensor, template
 
 
 from esphome.const import (
