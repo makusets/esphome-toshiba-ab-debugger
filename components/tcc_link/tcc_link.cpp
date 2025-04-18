@@ -564,21 +564,7 @@ void TccLinkClimate::loop() {
 
   if (millis() - last_temp_query_millis >= TEMP_QUERY_WAIT_MILLIS) {
       // Query temperature every TEMP_QUERY_WAIT_MILLIS
-    if (this->bme280_sensor_ != nullptr) {
-      uint8_t data[8];
-      if (bme280_sensor_->read_bytes(BME280_REGISTER_MEASUREMENTS, data, 8)) {
-        ESP_LOGW(TAG, "Error reading registers.");
-        this->status_set_warning();
-        return;
-      }
-      int32_t t_fine = 0;
-      float const temperature = bme280_sensor_->read_temperature_(data, &t_fine);
-      if (std::isnan(temperature)) {
-        ESP_LOGW(TAG, "Invalid temperature, cannot read pressure & humidity values.");
-        return;
-      }
-      ESP_LOGD("TCC_LINK", "BME280 Temperature: %.2f °C", temperature);
-    }
+    read_bme280_temperature();
     send_query_remote_temp_command();
     last_temp_query_millis = millis();
   }
@@ -706,7 +692,19 @@ void TccLinkClimate::send_query_remote_temp_command() {
   send_command(command);
 }
 
-
+void TccLinkClimate::read_bme280_temperature() {
+  if (this->bme280_sensor_ != nullptr) {
+    // Use the public API to get the temperature
+    float temperature = this->bme280_sensor_->get_temperature();
+    if (!std::isnan(temperature)) {
+      ESP_LOGD(TAG, "BME280 Temperature: %.2f °C", temperature);
+    } else {
+      ESP_LOGW(TAG, "Failed to read temperature from BME280 sensor.");
+    }
+  } else {
+    ESP_LOGW(TAG, "BME280 sensor is not configured.");
+  }
+}
 
 
 
