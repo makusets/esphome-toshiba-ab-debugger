@@ -270,7 +270,7 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
 
   void send_command(struct DataFrame command);
 
-  void send_query_remote_temp_command(struct DataFrame command);
+  void send_query_remote_temp_command();
 
   bool control_vent(bool state);
 
