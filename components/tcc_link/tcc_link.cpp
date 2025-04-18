@@ -261,7 +261,6 @@ void TccLinkClimate::setup() {
   if (this->failed_crcs_sensor_ != nullptr) {
     this->failed_crcs_sensor_->publish_state(0);
   }
-  static uint32_t last_temp_query_millis = 0;
 
 }
 
@@ -508,6 +507,7 @@ void TccLinkClimate::loop() {
   // TODO: check if last_unconfirmed_command_ was not confirmed after a timeout
   // and log warning/error
   
+  static uint32_t last_temp_query_millis = 0;
 
   if (!this->write_queue_.empty() && (millis() - last_received_frame_millis_) >= FRAME_SEND_MILLIS_FROM_LAST_RECEIVE &&
       (millis() - last_sent_frame_millis_) >= FRAME_SEND_MILLIS_FROM_LAST_SEND) {
@@ -561,7 +561,7 @@ void TccLinkClimate::loop() {
 
   if (millis() - last_temp_query_millis >= TEMP_QUERY_WAIT_MILLIS) {
       // Query temperature every TEMP_QUERY_WAIT_MILLIS
-    read_bme280_temperature();
+    //read_bme280_temperature();
     send_query_remote_temp_command();
     last_temp_query_millis = millis();
   }
