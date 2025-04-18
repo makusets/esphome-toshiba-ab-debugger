@@ -694,43 +694,41 @@ void TccLinkClimate::send_query_remote_temp_command() {
 }
 
 void TccLinkClimate::read_bme280_temperature() {
-  if (this->bme280_sensor_ != nullptr) {
-//  if (1 == 1) {
-    uint8_t temp_data[3];
+  uint8_t temp_data[3];  // Buffer to store the raw temperature data
 
-    // Read 3 bytes of temperature data from the BME280 registers (0xFA, 0xFB, 0xFC)
-    this->bme280_sensor_->set_i2c_address(0x76);  // Set the I2C address of the BME280 sensor
-    if (!this->bme280_sensor_->read_register(0xFA, temp_data, 3, true)) {
-      ESP_LOGW(TAG, "Failed to read temperature data from BME280 sensor.");
-      return;
-    }
+  // Create an I2C device instance
+  i2c::I2CDevice i2c_device;
+  i2c_device.set_address(0x76);  // Set the I2C address of the BME280 sensor
 
-    // Combine the raw temperature data into a 20-bit value
-    int32_t raw_temp = ((int32_t)temp_data[0] << 12) | ((int32_t)temp_data[1] << 4) | ((int32_t)(temp_data[2] >> 4));
+  // Read 3 bytes of temperature data starting from register 0xFA
+  if (!i2c_device.read(0xFA, temp_data, 3)) {
+    ESP_LOGW(TAG, "Failed to read temperature data from BME280 sensor.");
+    return;
+  }
 
-    // Apply the BME280 temperature compensation formula
-    // Replace these calibration values with the actual calibration data from your sensor
-    int32_t var1, var2, t_fine;
-    int32_t dig_T1 = 27504;  // Example calibration value
-    int32_t dig_T2 = 26435;  // Example calibration value
-    int32_t dig_T3 = -1000;  // Example calibration value
+  // Combine the raw temperature data into a 20-bit value
+  int32_t raw_temp = ((int32_t)temp_data[0] << 12) | ((int32_t)temp_data[1] << 4) | ((int32_t)(temp_data[2] >> 4));
 
-    var1 = ((((raw_temp >> 3) - ((int32_t)dig_T1 << 1))) * ((int32_t)dig_T2)) >> 11;
-    var2 = (((((raw_temp >> 4) - ((int32_t)dig_T1)) * ((raw_temp >> 4) - ((int32_t)dig_T1))) >> 12) *
-            ((int32_t)dig_T3)) >>
-           14;
-    t_fine = var1 + var2;
-    float temperature = (t_fine * 5 + 128) >> 8;
-    temperature /= 100.0;  // Convert to degrees Celsius
+  // Apply the BME280 temperature compensation formula
+  // Replace these calibration values with the actual calibration data from your sensor
+  int32_t var1, var2, t_fine;
+  int32_t dig_T1 = 27504;  // Example calibration value
+  int32_t dig_T2 = 26435;  // Example calibration value
+  int32_t dig_T3 = -1000;  // Example calibration value
 
-    // Log the temperature
-    if (!std::isnan(temperature)) {
-      ESP_LOGD(TAG, "BME280 Temperature: %.2f °C", temperature);
-    } else {
-      ESP_LOGW(TAG, "Invalid temperature reading from BME280 sensor.");
-    }
+  var1 = ((((raw_temp >> 3) - ((int32_t)dig_T1 << 1))) * ((int32_t)dig_T2)) >> 11;
+  var2 = (((((raw_temp >> 4) - ((int32_t)dig_T1)) * ((raw_temp >> 4) - ((int32_t)dig_T1))) >> 12) *
+          ((int32_t)dig_T3)) >>
+         14;
+  t_fine = var1 + var2;
+  float temperature = (t_fine * 5 + 128) >> 8;
+  temperature /= 100.0;  // Convert to degrees Celsius
+
+  // Log the temperature
+  if (!std::isnan(temperature)) {
+    ESP_LOGD(TAG, "BME280 Temperature: %.2f °C", temperature);
   } else {
-    ESP_LOGW(TAG, "BME280 sensor is not configured.");
+    ESP_LOGW(TAG, "Invalid temperature reading from BME280 sensor.");
   }
 }
 
