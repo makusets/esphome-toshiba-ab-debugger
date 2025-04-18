@@ -695,9 +695,9 @@ void TccLinkClimate::send_query_remote_temp_command() {
 void TccLinkClimate::read_bme280_temperature() {
   if (this->bme280_sensor_ != nullptr) {
     // Read raw temperature data from BME280 registers
-    uint8_t temp_msb = this->bme280_sensor_->i2c_read_byte(0x76, 0xFA);  // MSB register
-    uint8_t temp_lsb = this->bme280_sensor_->i2c_read_byte(0x76, 0xFB);  // LSB register
-    uint8_t temp_xlsb = this->bme280_sensor_->i2c_read_byte(0x76, 0xFC); // XLSB register
+    uint8_t temp_msb = this->bme280_sensor_->read_byte(0x76, 0xFA);  // MSB register
+    uint8_t temp_lsb = this->bme280_sensor_->read_byte(0x76, 0xFB);  // LSB register
+    uint8_t temp_xlsb = this->bme280_sensor_->read_byte(0x76, 0xFC); // XLSB register
 
     // Combine the raw temperature data into a 20-bit value
     int32_t raw_temp = ((int32_t)temp_msb << 12) | ((int32_t)temp_lsb << 4) | ((int32_t)(temp_xlsb >> 4));
