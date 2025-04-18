@@ -261,10 +261,6 @@ void TccLinkClimate::setup() {
   if (this->failed_crcs_sensor_ != nullptr) {
     this->failed_crcs_sensor_->publish_state(0);
   }
-  if (!bme.begin(0x76)) {  // Address 0x76 for BME280
-    ESP_LOGE(TAG, "Could not find a valid BME280 sensor, check wiring!");
-    while (1);
-  }
 }
 
 void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
@@ -341,10 +337,6 @@ void TccLinkClimate::sync_from_received_state() {
 }
 
 void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
-  float BME_temperature = bme.readTemperature();
-  ESP_LOGD(TAG, "BME280 Temperature: %f", BME_temperature);
-  tcc_state.room_temp = BME_temperature;
-
   switch (frame->source) {
     case TOSHIBA_MASTER:
       // status update
@@ -461,10 +453,6 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
       break;
     case TOSHIBA_REMOTE:
       // command
-      if BME_temperature > 0 {
-        sync_from_received_state();
-        break;
-      }
       log_data_frame("REMOTE", frame);
       if (frame->opcode1 == OPCODE_TEMPERATURE) {
         // current temperature is reported by the remote
@@ -517,7 +505,7 @@ bool TccLinkClimate::receive_data_frame(const struct DataFrame *frame) {
 void TccLinkClimate::loop() {
   // TODO: check if last_unconfirmed_command_ was not confirmed after a timeout
   // and log warning/error
-
+  static uint32_t last_temp_query_millis = 0;
 
 
   if (!this->write_queue_.empty() && (millis() - last_received_frame_millis_) >= FRAME_SEND_MILLIS_FROM_LAST_RECEIVE &&
@@ -569,6 +557,7 @@ void TccLinkClimate::loop() {
   }
 
   // check if we need to send a query to the remote temperature
+
   if (millis() - last_temp_query_millis >= TEMP_QUERY_WAIT_MILLIS) {
     send_query_remote_temp_command();
     last_temp_query_millis = millis();
