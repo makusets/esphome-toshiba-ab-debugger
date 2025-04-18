@@ -261,10 +261,7 @@ void TccLinkClimate::setup() {
   if (this->failed_crcs_sensor_ != nullptr) {
     this->failed_crcs_sensor_->publish_state(0);
   }
-  if (this->bme280_sensor_ == nullptr) {
-    ESP_LOGE("TCC_LINK", "BME280 sensor not configured!");
-    return;
-  }
+  static uint32_t last_temp_query_millis = 0;
 
 }
 
@@ -510,8 +507,7 @@ bool TccLinkClimate::receive_data_frame(const struct DataFrame *frame) {
 void TccLinkClimate::loop() {
   // TODO: check if last_unconfirmed_command_ was not confirmed after a timeout
   // and log warning/error
-  static uint32_t last_temp_query_millis = 0;
-
+  
 
   if (!this->write_queue_.empty() && (millis() - last_received_frame_millis_) >= FRAME_SEND_MILLIS_FROM_LAST_RECEIVE &&
       (millis() - last_sent_frame_millis_) >= FRAME_SEND_MILLIS_FROM_LAST_SEND) {
