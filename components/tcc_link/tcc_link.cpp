@@ -575,7 +575,6 @@ void TccLinkClimate::loop() {
       float const temperature = bme280_sensor_->read_temperature_(data, &t_fine);
       if (std::isnan(temperature)) {
         ESP_LOGW(TAG, "Invalid temperature, cannot read pressure & humidity values.");
-        this->status_set_warning();
         return;
       }
       ESP_LOGD("TCC_LINK", "BME280 Temperature: %.2f °C", temperature);
