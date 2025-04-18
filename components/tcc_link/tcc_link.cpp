@@ -1,8 +1,6 @@
 #include "tcc_link.h"
 
 
-bme280_i2c bme; // I2C
-
 namespace esphome {
 namespace tcc_link {
 
