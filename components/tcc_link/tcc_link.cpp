@@ -694,8 +694,21 @@ void TccLinkClimate::send_query_remote_temp_command() {
 
 void TccLinkClimate::read_bme280_temperature() {
   if (this->bme280_sensor_ != nullptr) {
-    this->bme280_sensor_->update();
-    float temperature = this->bme280_sensor_->temperature_sensor_
+  // Read temperature data
+// Example: Assuming you are reading from registers 0xE0, 0xE1, 0xE2
+    byte temp_msb = this->bme280_sensor_->i2c_read_byte(0x76, 0xE0); // Or your address
+    byte temp_lsb = i2c_read_byte(0x76, 0xE1);
+    byte temp_xlsb = i2c_read_byte(0x76, 0xE2);
+
+// Combine into 24-bit integer
+    long raw_temp = ((long)temp_msb << 16) | ((long)temp_lsb << 8) | ((long)temp_xlsb);
+
+// Apply calibration and formula from datasheet (replace with your specific calculation)
+// ...
+
+// Example (simplified, not definitive):
+    double temperature = (raw_temp / 100.0) / 1.0; // Example, replace with actual formula
+
     if (!std::isnan(temperature)) {
       ESP_LOGD(TAG, "BME280 Temperature: %.2f °C", temperature);
     } else {
