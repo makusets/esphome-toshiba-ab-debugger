@@ -271,9 +271,12 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
 
   void send_command(struct DataFrame command);
 
+  //syntax has to match protected attributes below and esphome component libraries
   void set_bme280_sensor(bme280_i2c::BME280I2CComponent *bme280_sensor) { this->bme280_sensor_ = bme280_sensor; } 
 
   void send_query_remote_temp_command();
+
+  void read_bme280_temperature();
 
   bool control_vent(bool state);
 
