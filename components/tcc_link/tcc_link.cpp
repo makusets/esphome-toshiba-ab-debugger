@@ -561,8 +561,8 @@ void TccLinkClimate::loop() {
 
   if (millis() - last_temp_query_millis >= TEMP_QUERY_WAIT_MILLIS) {
       // Query temperature every TEMP_QUERY_WAIT_MILLIS
-    //read_bme280_temperature();
-    send_query_remote_temp_command();
+    //read_bme280_temperature();  //can't figure out how to use the BME280 sensor
+    //send_query_remote_temp_command(); //doesn't seem to make any difference
     last_temp_query_millis = millis();
   }
 
