@@ -28,6 +28,18 @@ from esphome.const import (
     CONF_TEMPERATURE,
     DEVICE_CLASS_TEMPERATURE,
     UNIT_CELSIUS,
+    CONF_ADDRESS,
+    CONF_FREQUENCY,
+    CONF_I2C_ID,
+    CONF_INPUT,
+    CONF_OUTPUT,
+    CONF_SCAN,
+    CONF_SCL,
+    CONF_SDA,
+    CONF_TIMEOUT,
+    PLATFORM_ESP32,
+    PLATFORM_ESP8266,
+    PLATFORM_RP2040,
 )
 
 #Checks that uart is correctly defined in the YAML as a requirement:
