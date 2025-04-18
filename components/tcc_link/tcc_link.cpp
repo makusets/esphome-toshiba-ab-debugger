@@ -680,7 +680,7 @@ void TccLinkClimate::send_query_remote_temp_command() {
   for (size_t i = 0; i < command_length; i++) {
     command.raw[i] = command_data[i];
   }
-  command.size = command_length;
+  //command.size = command_length;
 
   // Send the command
   send_command(command);
