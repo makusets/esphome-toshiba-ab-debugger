@@ -267,7 +267,7 @@ void TccLinkClimate::setup() {
   }
   // Initialize the I2C device
   this->bme280_sensor_->set_i2c_address(0x76);  // Set the I2C address of the BME280 sensor (default is 0x76)
-  if (!this->bme280_sensor_->setup()) {
+  if (!this->bme280_sensor_->ArduinoI2CBus::setup()) {
     ESP_LOGE(TAG, "Failed to initialize BME280 sensor on I2C bus.");
     return;
   }
