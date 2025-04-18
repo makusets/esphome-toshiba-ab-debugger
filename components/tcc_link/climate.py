@@ -5,8 +5,11 @@ import esphome.config_validation as cv
 #import automation, seems standard practice:
 from esphome import automation
 
-#import the components that we will be using, including anything in the YAML that we access:
-from esphome.components import climate, uart, i2c, bme280_i2c, binary_sensor, sensor, switch, text_sensor, template
+#import the components that we will be using:
+#these have to reflect esphome components structure and syntax
+#they need to be loaded below either under DEPENDENCIES or AUTO_LOAD
+#later, the libraries need to be loaded in the .h file
+from esphome.components import climate, uart, i2c, bme280_base, bme280_i2c, binary_sensor, sensor, switch, text_sensor, template
 
 
 from esphome.const import (
@@ -30,7 +33,7 @@ from esphome.const import (
 #Checks that uart is correctly defined in the YAML as a requirement:
 DEPENDENCIES = ["uart"]
 
-AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch", "i2c", "bme280_i2c", "text_sensor", "template"]
+AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch", "i2c", "bme280_base", "bme280_i2c", "text_sensor", "template"]
 CODEOWNERS = ["@muxa", "@theeuwke"]
 
 tcc_link_ns = cg.esphome_ns.namespace("tcc_link")
