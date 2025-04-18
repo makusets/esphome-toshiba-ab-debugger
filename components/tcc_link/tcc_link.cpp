@@ -694,21 +694,30 @@ void TccLinkClimate::send_query_remote_temp_command() {
 
 void TccLinkClimate::read_bme280_temperature() {
   if (this->bme280_sensor_ != nullptr) {
-  // Read temperature data
-// Example: Assuming you are reading from registers 0xE0, 0xE1, 0xE2
-    byte temp_msb = this->bme280_sensor_->i2c_read_byte(0x76, 0xE0); // Or your address
-    byte temp_lsb = i2c_read_byte(0x76, 0xE1);
-    byte temp_xlsb = i2c_read_byte(0x76, 0xE2);
+    // Read raw temperature data from BME280 registers
+    uint8_t temp_msb = this->bme280_sensor_->i2c_read_byte(0x76, 0xFA);  // MSB register
+    uint8_t temp_lsb = this->bme280_sensor_->i2c_read_byte(0x76, 0xFB);  // LSB register
+    uint8_t temp_xlsb = this->bme280_sensor_->i2c_read_byte(0x76, 0xFC); // XLSB register
 
-// Combine into 24-bit integer
-    long raw_temp = ((long)temp_msb << 16) | ((long)temp_lsb << 8) | ((long)temp_xlsb);
+    // Combine the raw temperature data into a 20-bit value
+    int32_t raw_temp = ((int32_t)temp_msb << 12) | ((int32_t)temp_lsb << 4) | ((int32_t)(temp_xlsb >> 4));
 
-// Apply calibration and formula from datasheet (replace with your specific calculation)
-// ...
+    // Apply the BME280 temperature compensation formula
+    // Replace these calibration values with the actual calibration data from your sensor
+    int32_t var1, var2, t_fine;
+    int32_t dig_T1 = 27504;  // Example calibration value
+    int32_t dig_T2 = 26435;  // Example calibration value
+    int32_t dig_T3 = -1000;  // Example calibration value
 
-// Example (simplified, not definitive):
-    double temperature = (raw_temp / 100.0) / 1.0; // Example, replace with actual formula
+    var1 = ((((raw_temp >> 3) - ((int32_t)dig_T1 << 1))) * ((int32_t)dig_T2)) >> 11;
+    var2 = (((((raw_temp >> 4) - ((int32_t)dig_T1)) * ((raw_temp >> 4) - ((int32_t)dig_T1))) >> 12) *
+            ((int32_t)dig_T3)) >>
+           14;
+    t_fine = var1 + var2;
+    float temperature = (t_fine * 5 + 128) >> 8;
+    temperature /= 100.0;  // Convert to degrees Celsius
 
+    // Log the temperature
     if (!std::isnan(temperature)) {
       ESP_LOGD(TAG, "BME280 Temperature: %.2f °C", temperature);
     } else {
