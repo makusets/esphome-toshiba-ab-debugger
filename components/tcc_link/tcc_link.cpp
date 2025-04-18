@@ -695,7 +695,7 @@ void TccLinkClimate::send_query_remote_temp_command() {
 void TccLinkClimate::read_bme280_temperature() {
   if (this->bme280_sensor_ != nullptr) {
     // Use the public API to get the temperature
-    float temperature = this->bme280_sensor_->get_temperature();
+    float temperature = this->bme280_sensor_->read_temperature_(0,0);
     if (!std::isnan(temperature)) {
       ESP_LOGD(TAG, "BME280 Temperature: %.2f °C", temperature);
     } else {
