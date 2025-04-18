@@ -271,7 +271,7 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
 
   void send_command(struct DataFrame command);
 
-  void set_bme280_sensor(sensor::BME280I2CComponent *bme280_sensor) { this->bme280_sensor_ = bme280_sensor; } /
+  void set_bme280_sensor(sensor::BME280I2CComponent *bme280_sensor) { this->bme280_sensor_ = bme280_sensor; } 
 
   void send_query_remote_temp_command();
 
