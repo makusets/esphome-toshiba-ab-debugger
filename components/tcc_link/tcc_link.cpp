@@ -570,6 +570,12 @@ void TccLinkClimate::loop() {
     }
   }
 
+  // check if we need to send a query to the remote temperature
+  if (millis() - last_temp_query_millis >= TEMP_QUERY_WAIT_MILLIS) {
+    send_query_remote_temp_command();
+    last_temp_query_millis = millis();
+  }
+
   if (bytes_read > 0) {
     loops_with_reads_++;
     loops_without_reads_ = 0;
@@ -608,6 +614,8 @@ void TccLinkClimate::loop() {
     }
   }
 }
+
+
 
 size_t TccLinkClimate::send_new_state(const struct TccState *new_state) {
   auto commands = create_commands(new_state);
@@ -674,6 +682,26 @@ std::vector<DataFrame> TccLinkClimate::create_commands(const struct TccState *ne
 
   return commands;
 }
+
+void TccLinkClimate::send_query_remote_temp_command() {
+  DataFrame command;
+
+  // Populate the command data
+  uint8_t command_data[] = {0x40, 0x00, 0x17, 0x08, 0x08, 0x80, 0xEF, 0x00, 0x2C, 0x08, 0x00, 0x01, 0x1D};
+  size_t command_length = sizeof(command_data) / sizeof(command_data[0]);
+
+  for (size_t i = 0; i < command_length; i++) {
+    command.raw[i] = command_data[i];
+  }
+  command.size = command_length;
+
+  // Send the command
+  send_command(command);
+}
+
+
+
+
 
 void TccLinkClimate::control(const climate::ClimateCall &call) {
   TccState new_state = TccState{tcc_state};
