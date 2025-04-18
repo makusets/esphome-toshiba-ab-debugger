@@ -5,9 +5,8 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/uart/uart.h"
-// #include "esphome/components/bme280_i2c/bme280_i2c.h"  esphome cannot find it?
+#include "esphome/components/bme280_i2c/bme280_i2c.h"
 #include "esphome/components/i2c/i2c.h"
-#include "esphome/components/bme280/bme280.h"
 #include <bitset>
 #include <queue>
 #include <Wire.h>
