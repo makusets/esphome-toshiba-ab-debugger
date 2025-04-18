@@ -697,7 +697,8 @@ void TccLinkClimate::read_bme280_temperature() {
     uint8_t temp_data[3];
 
     // Read 3 bytes of temperature data from the BME280 registers (0xFA, 0xFB, 0xFC)
-    if (!this->bme280_sensor_->read(0x76, 0xFA, temp_data, 3)) {
+    this->bme280_sensor_->set_i2c_address(0x76);  // Set the I2C address of the BME280 sensor
+    if (!this->bme280_sensor_->read_register(0xFA, temp_data, 3, true)) {
       ESP_LOGW(TAG, "Failed to read temperature data from BME280 sensor.");
       return;
     }
