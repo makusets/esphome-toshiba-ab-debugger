@@ -271,7 +271,7 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
 
   void send_command(struct DataFrame command);
 
-  void set_bme280_sensor(sensor::BME280I2CComponent *bme280_sensor) { this->bme280_sensor_ = bme280_sensor; }
+  void set_bme280_sensor(sensor::BME280I2CComponent *bme280_sensor) { this->bme280_sensor_ = bme280_sensor; } /
 
   void send_query_remote_temp_command();
 
@@ -300,7 +300,7 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
   binary_sensor::BinarySensor *connected_binary_sensor_{nullptr};
   switch_::Switch *vent_switch_{nullptr};
   sensor::Sensor *failed_crcs_sensor_{nullptr};
-  sensor::BME280I2CComponent *bme280_sensor_{nullptr};  // Pointer to the BME280 sensor
+  bme280_i2c::BME280I2CComponent *bme280_sensor_{nullptr};  // Pointer to the BME280 sensor
   
   // callbacks
   CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
