@@ -265,6 +265,14 @@ void TccLinkClimate::setup() {
     ESP_LOGE("TCC_LINK", "BME280 sensor not configured!");
     return;
   }
+  // Initialize the I2C device
+  this->bme280_sensor_->set_i2c_address(0x76);  // Set the I2C address of the BME280 sensor (default is 0x76)
+  if (!this->bme280_sensor_->setup()) {
+    ESP_LOGE(TAG, "Failed to initialize BME280 sensor on I2C bus.");
+    return;
+  }
+
+  ESP_LOGI(TAG, "BME280 sensor initialized successfully.");
 }
 
 void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
