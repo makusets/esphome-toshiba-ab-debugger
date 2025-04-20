@@ -109,7 +109,9 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             }
         ),
     }
-).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA).extend(bme280_i2c.CONFIG_SCHEMA)
+).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA).extend(
+    i2c.i2c_device_schema(default_address=0x77)
+).extend({cv.GenerateID(): cv.declare_id(BME280I2CComponent)})
 #added bme280 device schema to the config schema with extend at the end
 
 
