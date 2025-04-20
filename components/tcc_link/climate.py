@@ -249,4 +249,6 @@ async def to_code(config): #standard syntax
 
     cg.add(var.set_iir_filter(config[CONF_IIR_FILTER]))
 
+    return var
+
     ### end of bme280 sensor section
