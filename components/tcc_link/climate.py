@@ -247,7 +247,7 @@ async def to_code(config): #standard syntax
         cg.add(var.set_humidity_sensor(sens))
         cg.add(var.set_humidity_oversampling(humidity_config[CONF_OVERSAMPLING]))
 
-    cg.add(var.set_iir_filter(config[CONF_IIR_FILTER]))
+    ## cg.add(var.set_iir_filter(config[CONF_IIR_FILTER]))
 
     return var
 
