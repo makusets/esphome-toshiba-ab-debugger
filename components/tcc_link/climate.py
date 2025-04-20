@@ -9,9 +9,10 @@ from esphome import automation
 #these have to reflect esphome components structure and syntax
 #they need to be loaded below either under DEPENDENCIES or AUTO_LOAD
 #later, the libraries need to be loaded in the .h file
-from esphome.components import climate, uart, i2c, bme280_base, bme280_i2c, binary_sensor, sensor, switch, text_sensor, template
+from esphome.components import climate, uart, i2c, bme280_i2c, binary_sensor, sensor, switch, text_sensor, template
+from ..bme280_base import CONFIG_SCHEMA_BASE, to_code_base  #added for bme280 sensor
 
-
+#import all the conf constants that we will be using
 from esphome.const import (
     CONF_ID,
     CONF_NAME,
@@ -44,11 +45,15 @@ from esphome.const import (
 
 #Checks that uart is correctly defined in the YAML as a requirement:
 DEPENDENCIES = ["uart"]
+DEPENDENCIES = ["i2c"]  #added for bme280 sensor
+
 
 AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch", "i2c", "bme280_base", "bme280_i2c", "text_sensor", "template"]
 CODEOWNERS = ["@muxa", "@theeuwke"]
 
 tcc_link_ns = cg.esphome_ns.namespace("tcc_link")
+bme280_ns = cg.esphome_ns.namespace("bme280_i2c")   #bme280 namespace added for temp sensor
+
 
 CONF_CONNECTED = "connected"
 CONF_VENT = "vent"
@@ -68,6 +73,11 @@ TccLinkVentSwitch =  tcc_link_ns.class_(
 TccLinkOnDataReceivedTrigger = tcc_link_ns.class_(
     "TccLinkOnDataReceivedTrigger", automation.Trigger.template()
 )
+
+BME280I2CComponent = bme280_ns.class_(
+    "BME280I2CComponent", cg.PollingComponent, i2c.I2CDevice
+) #bme280 class added for temp sensor
+
 
 CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
     {
@@ -99,7 +109,8 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             }
         ),
     }
-).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
+).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA).i2c.i2c_device_schema(default_address=0x77).extend({cv.GenerateID(): cv.declare_id(BME280I2CComponent)})
+#added i2c device schema to the config schema with 2 extend at the end
 
 
 def validate_uart(config):
@@ -114,10 +125,11 @@ FINAL_VALIDATE_SCHEMA = validate_uart
 
 async def to_code(config): #standard syntax
     var = cg.new_Pvariable(config[CONF_ID])  #standard syntax
-
+    await to_code_base(var, config)  #await for i2c base config 
     await cg.register_component(var, config)   #standard syntax
     await climate.register_climate(var, config)  #wait for the climate component to create
     await uart.register_uart_device(var, config)  #wait for the uart device to create
+    await i2c.register_i2c_device(var, config) #use the loaded 12c base config for the i2c device
 
     if CONF_CONNECTED in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_CONNECTED])
