@@ -74,7 +74,7 @@ tcc_link_ns = cg.esphome_ns.namespace("tcc_link")
 
 
 ###added for bme280 sensor
-BME280Oversampling = bme280_ns.enum("BME280Oversampling") #define the BME280 oversampling enum
+BME280Oversampling = tcc_link_ns.enum("BME280Oversampling") #define the BME280 oversampling enum
 OVERSAMPLING_OPTIONS = {
     "NONE": BME280Oversampling.BME280_OVERSAMPLING_NONE,
     "1X": BME280Oversampling.BME280_OVERSAMPLING_1X,
@@ -83,7 +83,7 @@ OVERSAMPLING_OPTIONS = {
     "8X": BME280Oversampling.BME280_OVERSAMPLING_8X,
     "16X": BME280Oversampling.BME280_OVERSAMPLING_16X,
 }
-BME280IIRFilter = bme280_ns.enum("BME280IIRFilter")
+BME280IIRFilter = tcc_link_ns.enum("BME280IIRFilter")
 IIR_FILTER_OPTIONS = {
     "OFF": BME280IIRFilter.BME280_IIR_FILTER_OFF,
     "2X": BME280IIRFilter.BME280_IIR_FILTER_2X,
