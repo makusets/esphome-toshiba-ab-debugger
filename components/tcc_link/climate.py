@@ -10,7 +10,7 @@ from esphome import automation
 #they need to be loaded below either under DEPENDENCIES or AUTO_LOAD
 #later, the libraries need to be loaded in the .h file
 from esphome.components import climate, uart, i2c, bme280_i2c, binary_sensor, sensor, switch, text_sensor, template
-from ..bme280_base import CONFIG_SCHEMA_BASE, to_code_base  #added for bme280 sensor
+# from ..bme280_base import CONFIG_SCHEMA_BASE, to_code_base  #added for bme280 sensor, gives error
 
 #import all the conf constants that we will be using
 from esphome.const import (
@@ -125,7 +125,7 @@ FINAL_VALIDATE_SCHEMA = validate_uart
 
 async def to_code(config): #standard syntax
     var = cg.new_Pvariable(config[CONF_ID])  #standard syntax
-    await to_code_base(var, config)  #await for i2c base config 
+#   var = await to_code_base(config)  # not sure, found on BME280 i2c component
     await cg.register_component(var, config)   #standard syntax
     await climate.register_climate(var, config)  #wait for the climate component to create
     await uart.register_uart_device(var, config)  #wait for the uart device to create
