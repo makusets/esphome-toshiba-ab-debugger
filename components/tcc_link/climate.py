@@ -184,7 +184,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
                 ),
             }
         ),
-        cv.Optional(CONF_IIR_FILTER): cv.enum(
+        cv.Optional(CONF_IIR_FILTER): cv.enum(  #can't put default value, gives me error
             IIR_FILTER_OPTIONS, upper=True
         ),
         ### end of bme280 sensor section
@@ -247,7 +247,7 @@ async def to_code(config): #standard syntax
         cg.add(var.set_humidity_sensor(sens))
         cg.add(var.set_humidity_oversampling(humidity_config[CONF_OVERSAMPLING]))
 
-    ## cg.add(var.set_iir_filter(config[CONF_IIR_FILTER]))
+    ## cg.add(var.set_iir_filter(config[CONF_IIR_FILTER])) ## gives error, not sure why
 
     return var
 
