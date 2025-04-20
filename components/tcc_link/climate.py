@@ -70,7 +70,7 @@ AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch", "i2c", "bme280_base
 CODEOWNERS = ["@muxa", "@theeuwke"]
 
 tcc_link_ns = cg.esphome_ns.namespace("tcc_link")
-bme280_ns = cg.esphome_ns.namespace("bme280_i2c")   #bme280 namespace added for temp sensor
+## bme280_ns = cg.esphome_ns.namespace("bme280_i2c")   #bme280 namespace added for temp sensor
 
 
 ###added for bme280 sensor
@@ -113,7 +113,7 @@ TccLinkOnDataReceivedTrigger = tcc_link_ns.class_(
     "TccLinkOnDataReceivedTrigger", automation.Trigger.template()
 )
 
-BME280I2CComponent = bme280_ns.class_(
+BME280I2CComponent = tcc_link_ns.class_(
     "BME280I2CComponent", cg.PollingComponent, i2c.I2CDevice
 ) #bme280 class added for temp sensor
 
