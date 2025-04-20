@@ -29,6 +29,20 @@ from esphome.const import (
     CONF_TEMPERATURE,
     DEVICE_CLASS_TEMPERATURE,
     UNIT_CELSIUS,
+    ###added for bme280 sensor
+    CONF_HUMIDITY,
+    CONF_ID,
+    CONF_IIR_FILTER,
+    CONF_OVERSAMPLING,
+    CONF_PRESSURE,
+    CONF_TEMPERATURE,
+    DEVICE_CLASS_HUMIDITY,
+    DEVICE_CLASS_PRESSURE,
+    DEVICE_CLASS_TEMPERATURE,
+    STATE_CLASS_MEASUREMENT,
+    UNIT_CELSIUS,
+    UNIT_HECTOPASCAL,
+    UNIT_PERCENT,
     CONF_ADDRESS,
     CONF_FREQUENCY,
     CONF_I2C_ID,
@@ -41,7 +55,11 @@ from esphome.const import (
     PLATFORM_ESP32,
     PLATFORM_ESP8266,
     PLATFORM_RP2040,
+    ###end of bme280 sensor section
 )
+
+
+
 
 #Checks that uart is correctly defined in the YAML as a requirement:
 DEPENDENCIES = ["uart"]
@@ -53,6 +71,27 @@ CODEOWNERS = ["@muxa", "@theeuwke"]
 
 tcc_link_ns = cg.esphome_ns.namespace("tcc_link")
 bme280_ns = cg.esphome_ns.namespace("bme280_i2c")   #bme280 namespace added for temp sensor
+
+
+###added for bme280 sensor
+BME280Oversampling = bme280_ns.enum("BME280Oversampling") #define the BME280 oversampling enum
+OVERSAMPLING_OPTIONS = {
+    "NONE": BME280Oversampling.BME280_OVERSAMPLING_NONE,
+    "1X": BME280Oversampling.BME280_OVERSAMPLING_1X,
+    "2X": BME280Oversampling.BME280_OVERSAMPLING_2X,
+    "4X": BME280Oversampling.BME280_OVERSAMPLING_4X,
+    "8X": BME280Oversampling.BME280_OVERSAMPLING_8X,
+    "16X": BME280Oversampling.BME280_OVERSAMPLING_16X,
+}
+BME280IIRFilter = bme280_ns.enum("BME280IIRFilter")
+IIR_FILTER_OPTIONS = {
+    "OFF": BME280IIRFilter.BME280_IIR_FILTER_OFF,
+    "2X": BME280IIRFilter.BME280_IIR_FILTER_2X,
+    "4X": BME280IIRFilter.BME280_IIR_FILTER_4X,
+    "8X": BME280IIRFilter.BME280_IIR_FILTER_8X,
+    "16X": BME280IIRFilter.BME280_IIR_FILTER_16X,
+}
+###end of bme280 sensor section
 
 
 CONF_CONNECTED = "connected"
@@ -108,11 +147,53 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
                 ),
             }
         ),
+        ### section for the bme280 sensor
+        cv.Optional(CONF_TEMPERATURE): sensor.sensor_schema(
+            unit_of_measurement=UNIT_CELSIUS,
+            accuracy_decimals=1,
+            device_class=DEVICE_CLASS_TEMPERATURE,
+            state_class=STATE_CLASS_MEASUREMENT,
+        ).extend(
+            {
+                cv.Optional(CONF_OVERSAMPLING, default="16X"): cv.enum(
+                    OVERSAMPLING_OPTIONS, upper=True
+                ),
+            }
+        ),
+        cv.Optional(CONF_PRESSURE): sensor.sensor_schema(
+            unit_of_measurement=UNIT_HECTOPASCAL,
+            accuracy_decimals=1,
+            device_class=DEVICE_CLASS_PRESSURE,
+            state_class=STATE_CLASS_MEASUREMENT,
+        ).extend(
+            {
+                cv.Optional(CONF_OVERSAMPLING, default="16X"): cv.enum(
+                    OVERSAMPLING_OPTIONS, upper=True
+                ),
+            }
+        ),
+        cv.Optional(CONF_HUMIDITY): sensor.sensor_schema(
+            unit_of_measurement=UNIT_PERCENT,
+            accuracy_decimals=1,
+            device_class=DEVICE_CLASS_HUMIDITY,
+            state_class=STATE_CLASS_MEASUREMENT,
+        ).extend(
+            {
+                cv.Optional(CONF_OVERSAMPLING, default="16X"): cv.enum(
+                    OVERSAMPLING_OPTIONS, upper=True
+                ),
+            }
+        ),
+        cv.Optional(CONF_IIR_FILTER, default="OFF"): cv.enum(
+            IIR_FILTER_OPTIONS, upper=True
+        ),
+        ### end of bme280 sensor section
+
     }
-).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA).extend(
+).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA).extend(cv.polling_component_schema("60s")).extend(
     i2c.i2c_device_schema(default_address=0x77)
 ).extend({cv.GenerateID(): cv.declare_id(BME280I2CComponent)})
-#added bme280 device schema to the config schema with extend at the end
+#added bme280 device schema to the config schema with extends at the end, polling, i2c device and generateID
 
 
 def validate_uart(config):
@@ -127,7 +208,6 @@ FINAL_VALIDATE_SCHEMA = validate_uart
 
 async def to_code(config): #standard syntax
     var = cg.new_Pvariable(config[CONF_ID])  #standard syntax
-#   var = await to_code_base(config)  # not sure, found on BME280 i2c component
     await cg.register_component(var, config)   #standard syntax
     await climate.register_climate(var, config)  #wait for the climate component to create
     await uart.register_uart_device(var, config)  #wait for the uart device to create
@@ -151,3 +231,22 @@ async def to_code(config): #standard syntax
             await automation.build_automation(
                 data_trigger, [(cg.std_vector.template(cg.uint8), "x")], on_data_received
             )
+### added for bme280 sensor
+    if temperature_config := config.get(CONF_TEMPERATURE):
+        sens = await sensor.new_sensor(temperature_config)
+        cg.add(var.set_temperature_sensor(sens))
+        cg.add(var.set_temperature_oversampling(temperature_config[CONF_OVERSAMPLING]))
+
+    if pressure_config := config.get(CONF_PRESSURE):
+        sens = await sensor.new_sensor(pressure_config)
+        cg.add(var.set_pressure_sensor(sens))
+        cg.add(var.set_pressure_oversampling(pressure_config[CONF_OVERSAMPLING]))
+
+    if humidity_config := config.get(CONF_HUMIDITY):
+        sens = await sensor.new_sensor(humidity_config)
+        cg.add(var.set_humidity_sensor(sens))
+        cg.add(var.set_humidity_oversampling(humidity_config[CONF_OVERSAMPLING]))
+
+    cg.add(var.set_iir_filter(config[CONF_IIR_FILTER]))
+
+    ### end of bme280 sensor section
