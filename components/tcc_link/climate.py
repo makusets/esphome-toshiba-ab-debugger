@@ -184,7 +184,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
                 ),
             }
         ),
-        cv.Optional(CONF_IIR_FILTER, default="OFF"): cv.enum(
+        cv.Optional(CONF_IIR_FILTER): cv.enum(
             IIR_FILTER_OPTIONS, upper=True
         ),
         ### end of bme280 sensor section
