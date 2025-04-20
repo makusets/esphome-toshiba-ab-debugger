@@ -109,8 +109,8 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             }
         ),
     }
-).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA).i2c.i2c_device_schema(default_address=0x77).extend({cv.GenerateID(): cv.declare_id(BME280I2CComponent)})
-#added i2c device schema to the config schema with 2 extend at the end
+).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA).extend(bme280_i2c.CONFIG_SCHEMA)
+#added bme280 device schema to the config schema with extend at the end
 
 
 def validate_uart(config):
