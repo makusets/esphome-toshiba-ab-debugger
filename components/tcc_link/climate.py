@@ -102,8 +102,8 @@ CONF_ON_DATA_RECEIVED = "on_data_received"
 
 
 TccLinkClimate =  tcc_link_ns.class_(
-    "TccLinkClimate", climate.Climate, uart.UARTDevice, cg.Component, cg.PollingComponent, i2c.I2CDevice
-) #added i2c device to the class, and cg.PollingComponent for the bme280 sensor
+    "TccLinkClimate", climate.Climate, uart.UARTDevice, cg.Component, bme280_i2c.BME280I2CComponent
+) #added bme280_i2c.BME280I2CComponent to the class definition
 
 TccLinkVentSwitch =  tcc_link_ns.class_(
     "TccLinkVentSwitch", switch.Switch, cg.Component
