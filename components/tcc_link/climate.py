@@ -69,7 +69,7 @@ DEPENDENCIES = ["i2c"]  #added for bme280 sensor
 AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch", "i2c", "bme280_base", "bme280_i2c", "text_sensor", "template", "i2c_device"]  #added for bme280 sensor
 CODEOWNERS = ["@muxa", "@theeuwke"]
 
-tcc_link_ns = cg.esphome_ns.namespace("tcc_ink")
+tcc_link_ns = cg.esphome_ns.namespace("tcc_link")
 ## bme280_ns = cg.esphome_ns.namespace("bme280_i2c")   #bme280 namespace added for temp sensor
 
 
