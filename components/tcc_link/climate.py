@@ -9,7 +9,7 @@ from esphome import automation
 #these have to reflect esphome components structure and syntax
 #they need to be loaded below either under DEPENDENCIES or AUTO_LOAD
 #later, the libraries need to be loaded in the .h file
-from esphome.components import climate, uart, i2c, bme280_i2c, binary_sensor, sensor, switch, text_sensor, template
+from esphome.components import climate, uart, i2c, i2c_device, bme280_i2c, binary_sensor, sensor, switch, text_sensor, template
 # from ..bme280_base import CONFIG_SCHEMA_BASE, to_code_base  #added for bme280 sensor, gives error
 
 #import all the conf constants that we will be using
@@ -66,7 +66,7 @@ DEPENDENCIES = ["uart"]
 DEPENDENCIES = ["i2c"]  #added for bme280 sensor
 
 
-AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch", "i2c", "bme280_base", "bme280_i2c", "text_sensor", "template"]
+AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch", "i2c", "bme280_base", "bme280_i2c", "text_sensor", "template", "i2c_device"]  #added for bme280 sensor
 CODEOWNERS = ["@muxa", "@theeuwke"]
 
 tcc_link_ns = cg.esphome_ns.namespace("tcc_link")
@@ -102,8 +102,8 @@ CONF_ON_DATA_RECEIVED = "on_data_received"
 
 
 TccLinkClimate =  tcc_link_ns.class_(
-    "TccLinkClimate", climate.Climate, uart.UARTDevice, cg.Component, bme280_i2c.BME280I2CComponent
-) #added bme280_i2c.BME280I2CComponent to the class definition
+    "TccLinkClimate", climate.Climate, uart.UARTDevice, cg.Component, i2c_device.I2CDeviceComponent
+) #added i2c_device to the class definition
 
 TccLinkVentSwitch =  tcc_link_ns.class_(
     "TccLinkVentSwitch", switch.Switch, cg.Component
