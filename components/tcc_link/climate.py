@@ -10,7 +10,7 @@ from esphome import automation
 #they need to be loaded below either under DEPENDENCIES or AUTO_LOAD
 #later, the libraries need to be loaded in the .h file
 from esphome.components import climate, uart, i2c, bme280_base, bme280_i2c, binary_sensor, sensor, switch, text_sensor, template
-from ..components.bme280_base import CONFIG_SCHEMA_BASE, to_code_base  #added for bme280 sensor, gives error
+from esphome.components.bme280_base import CONFIG_SCHEMA_BASE, to_code_base  #added for bme280 sensor, gives error
 
 #import all the conf constants that we will be using
 from esphome.const import (
