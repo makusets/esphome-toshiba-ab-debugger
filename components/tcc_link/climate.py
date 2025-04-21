@@ -10,7 +10,7 @@ from esphome import automation
 #they need to be loaded below either under DEPENDENCIES or AUTO_LOAD
 #later, the libraries need to be loaded in the .h file
 from esphome.components import climate, uart, i2c, bme280_base, bme280_i2c, binary_sensor, sensor, switch, text_sensor, template
-# from .components.bme280_base import CONFIG_SCHEMA_BASE, to_code_base  #added for bme280 sensor
+from .components.bme280_base import CONFIG_SCHEMA_BASE, to_code_base  #added for bme280 sensor
 
 #import all the conf constants that we will be using
 from esphome.const import (
@@ -69,7 +69,7 @@ DEPENDENCIES = ["i2c"]  #added for bme280 sensor
 AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch", "i2c", "bme280_base", "bme280_i2c", "text_sensor", "template", "i2c_device"]  #added for bme280 sensor
 CODEOWNERS = ["@muxa", "@theeuwke"]
 
-tcc_link_ns = cg.esphome_ns.namespace("tcc_link")
+tcc_link_ns = cg.esphome_ns.namespace("tcc_ink")
 ## bme280_ns = cg.esphome_ns.namespace("bme280_i2c")   #bme280 namespace added for temp sensor
 
 
