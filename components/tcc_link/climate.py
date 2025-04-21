@@ -102,8 +102,8 @@ CONF_ON_DATA_RECEIVED = "on_data_received"
 
 
 TccLinkClimate =  tcc_link_ns.class_(
-    "TccLinkClimate", climate.Climate, uart.UARTDevice, cg.Component
-)
+    "TccLinkClimate", climate.Climate, uart.UARTDevice, cg.Component, cg.PollingComponent, i2c.I2CDevice
+) #added i2c device to the class, and cg.PollingComponent for the bme280 sensor
 
 TccLinkVentSwitch =  tcc_link_ns.class_(
     "TccLinkVentSwitch", switch.Switch, cg.Component
@@ -113,9 +113,9 @@ TccLinkOnDataReceivedTrigger = tcc_link_ns.class_(
     "TccLinkOnDataReceivedTrigger", automation.Trigger.template()
 )
 
-BME280I2CComponent = tcc_link_ns.class_(
-    "BME280I2CComponent", cg.PollingComponent, i2c.I2CDevice
-) #bme280 class added for temp sensor
+#BME280I2CComponent = tcc_link_ns.class_(
+#    "BME280I2CComponent", cg.PollingComponent, i2c.I2CDevice
+#) #bme280 class added for temp sensor
 
 
 CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
@@ -184,7 +184,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
                 ),
             }
         ),
-        cv.Optional(CONF_IIR_FILTER): cv.enum(  #can't put default value, gives me error
+        cv.Optional(CONF_IIR_FILTER): cv.enum(  #can't put default value, gives me error?
             IIR_FILTER_OPTIONS, upper=True
         ),
         ### end of bme280 sensor section
@@ -192,8 +192,8 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA).extend(cv.polling_component_schema("60s")).extend(
     i2c.i2c_device_schema(default_address=0x77)
-).extend({cv.GenerateID(): cv.declare_id(BME280I2CComponent)})
-#added bme280 device schema to the config schema with extends at the end, polling, i2c device and generateID
+)#.extend({cv.GenerateID(): cv.declare_id(BME280I2CComponent)}) 
+
 
 
 def validate_uart(config):
