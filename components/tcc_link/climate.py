@@ -190,9 +190,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
         ### end of bme280 sensor section
 
     }
-).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA).extend(cv.polling_component_schema("60s")).extend(
-    i2c.i2c_device_schema(default_address=0x77)
-)#.extend({cv.GenerateID(): cv.declare_id(BME280I2CComponent)}) 
+).extend(uart.UART_DEVICE_SCHEMA).extend(bme280_i2c.CONFIG_SCHEMA).extend(cv.COMPONENT_SCHEMA).extend(cv.POLLING_COMPONENT_SCHEMA("60s"))#.extend(i2c.i2c_device_schema(default_address=0x77)).extend({cv.GenerateID(): cv.declare_id(BME280I2CComponent)}) 
 
 
 
