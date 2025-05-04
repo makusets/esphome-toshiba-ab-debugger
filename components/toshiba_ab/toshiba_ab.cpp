@@ -108,12 +108,12 @@ void write_set_parameter_mode(struct DataFrame *command, const struct TccState *
   write_set_parameter(command, OPCODE2_SET_MODE, state->mode);
 }
 
-void write_set_parameter_power(struct DataFrame *command, const struct TccState *state) {
-  write_set_parameter(command, this->master_address_, OPCODE2_SET_POWER, state->power | 0b0010);
+void write_set_parameter_power(struct DataFrame *command, uint8_t master_address, const struct TccState *state) {
+  write_set_parameter(command, master_address, OPCODE2_SET_POWER, state->power | 0b0010);
 }
 
-void write_set_parameter_vent(struct DataFrame *command, const struct TccState *state) {
-  write_set_parameter(command, this->master_address_, OPCODE2_SET_VENT, state->vent);
+void write_set_parameter_vent(struct DataFrame *command, uint8_t master_address, const struct TccState *state) {
+  write_set_parameter(command, master_address, OPCODE2_SET_VENT, state->vent);
 }
 
 uint8_t to_tcc_power(const climate::ClimateMode mode) {
@@ -617,13 +617,13 @@ std::vector<DataFrame> ToshibaAbClimate::create_commands(const struct TccState *
       // turn on
       ESP_LOGD(TAG, "Turning on");
       auto command = DataFrame{};
-      write_set_parameter_power(&command, new_state);
+      write_set_parameter_power(&command, this->master_address_, new_state);
       commands.push_back(command);
     } else {
       // turn off
       ESP_LOGD(TAG, "Turning off");
       auto command = DataFrame{};
-      write_set_parameter_power(&command, new_state);
+      write_set_parameter_power(&command, this->master_address_, new_state);
       commands.push_back(command);
       // don't process other changes when turning off
       return commands;
@@ -654,7 +654,7 @@ std::vector<DataFrame> ToshibaAbClimate::create_commands(const struct TccState *
   if (new_state->vent != tcc_state.vent) {
     ESP_LOGD(TAG, "Changing vent");
     auto command = DataFrame{};
-    write_set_parameter_vent(&command, new_state);
+    write_set_parameter_vent(&command, this->master_address_, new_state);
     commands.push_back(command);
   }
 
