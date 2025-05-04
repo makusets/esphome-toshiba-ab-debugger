@@ -1,11 +1,9 @@
 #include "tcc_link.h"
 
-
 namespace esphome {
 namespace tcc_link {
 
 static const char *const TAG = "tcc_link.climate";
-
 
 const LogString *opcode_to_string(uint8_t opcode) {
   switch (opcode) {
@@ -155,25 +153,20 @@ uint8_t to_tcc_fan(const climate::ClimateFanMode fan) {
   }
 }
 
-
-
-// Next function reports the climate action (what is actually doing) to ESPHome from state class
-
 climate::ClimateAction to_climate_action(const struct TccState *state) {
   if (state->power == 0)
     return climate::CLIMATE_ACTION_OFF;
 
   switch (state->mode) {
     case MODE_HEAT:
-      return climate::CLIMATE_ACTION_HEATING;   // modified to ensure it shows heating in thermostat
     case MODE_AUTO:
     case MODE_COOL:
-//      if (state->cooling) {
-      return climate::CLIMATE_ACTION_COOLING;   // modified to ensure it shows cooling in thermostat,  my ac doesn't seem to report whether it's idle or not, at leat on cooling setting
-//      } else if (state->heating) {
-//        return climate::CLIMATE_ACTION_HEATING;
-//      }
-//      return climate::CLIMATE_ACTION_IDLE;
+      if (state->cooling) {
+        return climate::CLIMATE_ACTION_COOLING;
+      } else if (state->heating) {
+        return climate::CLIMATE_ACTION_HEATING;
+      }
+      return climate::CLIMATE_ACTION_IDLE;
     case MODE_FAN_ONLY:
       return climate::CLIMATE_ACTION_FAN;
     case MODE_DRY:
@@ -182,9 +175,6 @@ climate::ClimateAction to_climate_action(const struct TccState *state) {
 
   return climate::CLIMATE_ACTION_IDLE;
 }
-
-
-// Next function reports the climate state (what is the setting) to ESPHome from state class
 
 climate::ClimateMode to_climate_mode(const struct TccState *state) {
   if (state->power == 0)
@@ -246,8 +236,7 @@ TccLinkClimate::TccLinkClimate() {
   this->traits_.set_supports_two_point_target_temperature(false);
   this->traits_.set_visual_min_temperature(18);
   this->traits_.set_visual_max_temperature(29);
-  this->traits_.set_visual_target_temperature_step(1);  // changed to 1 as my AC doesn't support 0.5
-  this->traits_.set_visual_current_temperature_step(0.5);
+  this->traits_.set_visual_temperature_step(0.5);
 }
 
 climate::ClimateTraits TccLinkClimate::traits() { return traits_; }
@@ -261,7 +250,6 @@ void TccLinkClimate::setup() {
   if (this->failed_crcs_sensor_ != nullptr) {
     this->failed_crcs_sensor_->publish_state(0);
   }
-
 }
 
 void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
@@ -323,11 +311,6 @@ void TccLinkClimate::sync_from_received_state() {
     changes++;
   }
 
-  //if (current_temperature != esp_sensor_temp_->state) {
-  //  current_temperature = esp_sensor_temp_->state;
-  //  changes++;
-  //}
-  
   if (changes > 0) {
     this->publish_state();
   }
@@ -339,6 +322,7 @@ void TccLinkClimate::sync_from_received_state() {
 
 void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
   switch (frame->source) {
+    case 0x00:
     case TOSHIBA_MASTER:
       // status update
 
@@ -350,9 +334,9 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
       switch (frame->opcode1) {
         case OPCODE_PING:
           log_data_frame("PING", frame);
+          break;
           // case OPCODE_ACK:
           // ESP_LOGD(TAG, " Command acknoledged");
-        
           break;
         case OPCODE_PARAMETER:
           // master reporting it's state
@@ -371,7 +355,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
           tcc_state.cooling = (frame->data[STATUS_DATA_MODEPOWER_BYTE] & 0b00001000) >> 3;
           tcc_state.heating = (frame->data[STATUS_DATA_MODEPOWER_BYTE] & 0b00000001);
           // tcc_state.heating = (frame->data[3] & 0b0100) >> 2;
-          // tcc_state.preheating = (frame->data[3] & 0b0100) >> 2;
+          tcc_state.preheating = (frame->data[3] & 0b0100) >> 2;
 
           ESP_LOGD(TAG, "Mode: %02X, Cooling: %d, Heating: %d, Preheating: %d", tcc_state.mode, tcc_state.cooling,
                    tcc_state.heating, tcc_state.preheating);
@@ -408,9 +392,9 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
           // actuall will be delayed and will e reported via MASTER PARAMETER
           // tcc_state.cooling = (frame->data[7] & 0b1000) >> 3;
           // tcc_state.heating = (frame->data[7] & 0b0001);
-          // tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
+          tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
 
-          ESP_LOGD(TAG, "Mode: %02X, Target Temp: %f, Preheating: %hu", tcc_state.mode, tcc_state.target_temp, tcc_state.preheating);
+          ESP_LOGD(TAG, "Mode: %02X, Preheating: %d", tcc_state.mode, tcc_state.preheating);
 
           sync_from_received_state();
 
@@ -431,7 +415,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
               static_cast<float>(frame->data[STATUS_DATA_TARGET_TEMP_BYTE] & TEMPERATURE_DATA_MASK) /
                   TEMPERATURE_CONVERSION_RATIO -
               TEMPERATURE_CONVERSION_OFFSET;
-         
+
           if (frame->data[STATUS_DATA_TARGET_TEMP_BYTE + 1] > 1) {
             tcc_state.room_temp =
                 static_cast<float>(frame->data[STATUS_DATA_TARGET_TEMP_BYTE + 1]) / TEMPERATURE_CONVERSION_RATIO -
@@ -439,9 +423,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
           }
 
           tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
-          ESP_LOGD(TAG, "Mode: %02X, Target Temp: %f, Room Temp: %f, Fan: %02X, Power: %hu, Preheating: %hu", tcc_state.mode, tcc_state.target_temp, tcc_state.room_temp, tcc_state.fan, tcc_state.power, tcc_state.preheating);
-         
-         
+          ESP_LOGD(TAG, "Mode: %02X, Preheating: %d", tcc_state.mode, tcc_state.preheating);
 
           sync_from_received_state();
 
@@ -460,7 +442,6 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
         if (frame->data[3] > 1) {
           tcc_state.room_temp =
               static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
-          ESP_LOGD(TAG, "Room Temperature (from remote): %f", tcc_state.room_temp);
           sync_from_received_state();
         }
       }
@@ -500,14 +481,9 @@ bool TccLinkClimate::receive_data_frame(const struct DataFrame *frame) {
   return true;
 }
 
-
-// Next function is the main loop that reads the data from the AC unit and sends the data to the AC unit
-
 void TccLinkClimate::loop() {
   // TODO: check if last_unconfirmed_command_ was not confirmed after a timeout
   // and log warning/error
-  
-  static uint32_t last_temp_query_millis = 0;
 
   if (!this->write_queue_.empty() && (millis() - last_received_frame_millis_) >= FRAME_SEND_MILLIS_FROM_LAST_RECEIVE &&
       (millis() - last_sent_frame_millis_) >= FRAME_SEND_MILLIS_FROM_LAST_SEND) {
@@ -557,15 +533,6 @@ void TccLinkClimate::loop() {
     }
   }
 
-  // check if we need to send a query to the remote temperature
-
-  if (millis() - last_temp_query_millis >= TEMP_QUERY_WAIT_MILLIS) {
-      // Query temperature every TEMP_QUERY_WAIT_MILLIS
-    //read_bme280_temperature();  //can't figure out how to use the BME280 sensor
-    //send_query_remote_temp_command(); //doesn't seem to make any difference
-    last_temp_query_millis = millis();
-  }
-
   if (bytes_read > 0) {
     loops_with_reads_++;
     loops_without_reads_ = 0;
@@ -604,8 +571,6 @@ void TccLinkClimate::loop() {
     }
   }
 }
-
-
 
 size_t TccLinkClimate::send_new_state(const struct TccState *new_state) {
   auto commands = create_commands(new_state);
@@ -672,62 +637,6 @@ std::vector<DataFrame> TccLinkClimate::create_commands(const struct TccState *ne
 
   return commands;
 }
-
-void TccLinkClimate::send_query_remote_temp_command() {
-  DataFrame command;
-
-  // Populate the command data
-  uint8_t command_data[] = {0x00, 0x40, 0x17, 0x08, 0x08, 0x80, 0xEF, 0x00, 0x2C, 0x08, 0x00, 0x00, 0x1C};
-  size_t command_length = sizeof(command_data) / sizeof(command_data[0]);
-
-  for (size_t i = 0; i < command_length; i++) {
-    command.raw[i] = command_data[i];
-  }
-  //command.size = command_length;
-
-  // Send the command
-  send_command(command);
-}
-
-void TccLinkClimate::read_bme280_temperature() {
-  uint8_t temp_data[3];  // Buffer to store the raw temperature data
-
-  // Create an I2C device instance
-  i2c::I2CDevice i2c_device;
-  i2c_device.set_i2c_address(0x76);  // Set the I2C address of the BME280 sensor
-
-  // Read 3 bytes of temperature data starting from register 0xFA
-  if (!i2c_device.read_register(0xFA, temp_data, 3)) {
-    ESP_LOGW(TAG, "Failed to read temperature data from BME280 sensor.");
-    return;
-  }
-
-  // Combine the raw temperature data into a 20-bit value
-  int32_t raw_temp = ((int32_t)temp_data[0] << 12) | ((int32_t)temp_data[1] << 4) | ((int32_t)(temp_data[2] >> 4));
-
-  // Apply the BME280 temperature compensation formula
-  // Replace these calibration values with the actual calibration data from your sensor
-  int32_t var1, var2, t_fine;
-  int32_t dig_T1 = 27504;  // Example calibration value
-  int32_t dig_T2 = 26435;  // Example calibration value
-  int32_t dig_T3 = -1000;  // Example calibration value
-
-  var1 = ((((raw_temp >> 3) - ((int32_t)dig_T1 << 1))) * ((int32_t)dig_T2)) >> 11;
-  var2 = (((((raw_temp >> 4) - ((int32_t)dig_T1)) * ((raw_temp >> 4) - ((int32_t)dig_T1))) >> 12) *
-          ((int32_t)dig_T3)) >>
-         14;
-  t_fine = var1 + var2;
-  float temperature = (t_fine * 5 + 128) >> 8;
-  temperature /= 100.0;  // Convert to degrees Celsius
-
-  // Log the temperature
-  if (!std::isnan(temperature)) {
-    ESP_LOGD(TAG, "BME280 Temperature: %.2f °C", temperature);
-  } else {
-    ESP_LOGW(TAG, "Invalid temperature reading from BME280 sensor.");
-  }
-}
-
 
 void TccLinkClimate::control(const climate::ClimateCall &call) {
   TccState new_state = TccState{tcc_state};

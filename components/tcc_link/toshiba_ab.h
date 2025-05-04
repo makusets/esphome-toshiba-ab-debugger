@@ -5,20 +5,14 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/uart/uart.h"
-#include "esphome/components/bme280_i2c/bme280_i2c.h"
-#include "esphome/components/i2c/i2c.h"
 #include <bitset>
 #include <queue>
-#include <Wire.h>
-//#include <Adafruit_Sensor.h>
-//#include <Adafruit_BME280.h>
 
 namespace esphome {
 namespace tcc_link {
 
 const uint32_t ALIVE_MESSAGE_PERIOD_MILLIS = 5000;
 const uint32_t LAST_ALIVE_TIMEOUT_MILLIS = ALIVE_MESSAGE_PERIOD_MILLIS * 3 + 1000;
-const uint32_t TEMP_QUERY_WAIT_MILLIS = 10000;
 
 const uint32_t PACKET_MIN_WAIT_MILLIS = 200;
 const uint32_t FRAME_SEND_MILLIS_FROM_LAST_RECEIVE = 500;
@@ -90,7 +84,7 @@ const uint8_t MODE_HEAT = 0x01;
 const uint8_t MODE_COOL = 0x02;
 const uint8_t MODE_FAN_ONLY = 0x03;
 const uint8_t MODE_DRY = 0x04;
-const uint8_t MODE_AUTO = 0x06; // Changed from 5 to 6 to reflect my unit
+const uint8_t MODE_AUTO = 0x05;
 
 const uint8_t FAN_PEED_AUTO = 0x02;
 const uint8_t FAN_PEED_LOW = 0x05;
@@ -271,13 +265,6 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
 
   void send_command(struct DataFrame command);
 
-  //syntax has to match protected attributes below and esphome component libraries
-  void set_bme280_sensor(i2c::I2CDevice *bme280_sensor) { this->bme280_sensor_ = bme280_sensor; } 
-
-  void send_query_remote_temp_command();
-
-  void read_bme280_temperature();
-
   bool control_vent(bool state);
 
   bool receive_data(const std::vector<uint8_t> data);
@@ -303,8 +290,7 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
   binary_sensor::BinarySensor *connected_binary_sensor_{nullptr};
   switch_::Switch *vent_switch_{nullptr};
   sensor::Sensor *failed_crcs_sensor_{nullptr};
-  i2c::I2CDevice *bme280_sensor_{nullptr};  // Pointer to the BME280 sensor
-  
+
   // callbacks
   CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
 
