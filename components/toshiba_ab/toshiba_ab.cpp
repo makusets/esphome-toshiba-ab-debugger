@@ -1,11 +1,13 @@
 #include "toshiba_ab.h"
 
-namespace esphome {
-namespace toshiba_ab {
-
 sensor::Sensor *bme280_temp = nullptr;
 sensor::Sensor *bme280_pressure = nullptr;
 sensor::Sensor *bme280_humidity = nullptr;
+
+namespace esphome {
+namespace toshiba_ab {
+
+
 
 static const char *const TAG = "tcc_link.climate";
 
@@ -333,7 +335,7 @@ void ToshibaAbClimate::sync_from_received_state() {
 
 void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
   switch (frame->source) {
-    case 0x00:
+  //  case 0x00: // 0x00 is the master duplicate case
     case TOSHIBA_MASTER:
       // status update
 

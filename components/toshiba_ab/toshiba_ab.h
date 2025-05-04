@@ -335,6 +335,6 @@ class ToshibaAbVentSwitch : public switch_::Switch, public Component {
 }  // namespace esphome
 
 // sensors for BME280 configured in yaml and managed by native esphome component
-extern sensor::Sensor *bme280_temp;
-extern sensor::Sensor *bme280_pressure;
-extern sensor::Sensor *bme280_humidity;
+extern esphome::sensor::Sensor *bme280_temp;
+extern esphome::sensor::Sensor *bme280_pressure;
+extern esphome::sensor::Sensor *bme280_humidity;
