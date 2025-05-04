@@ -72,7 +72,7 @@ uint8_t get_fan_bit_mask_for_mode(uint8_t mode) {
   return 0;
 }
 
-void write_set_parameter(struct DataFrame *command, uint8_t opcode2, uint8_t payload[], size_t payload_size) {
+void write_set_parameter(struct DataFrame *command, uint8_t master_address, uint8_t opcode2, uint8_t payload[], size_t payload_size) {
   command->source = TOSHIBA_REMOTE;
   command->dest = master_address;
   command->opcode1 = OPCODE_PARAMETER;
@@ -87,7 +87,7 @@ void write_set_parameter(struct DataFrame *command, uint8_t opcode2, uint8_t pay
   command->data[SET_PARAMETER_PAYLOAD_HEADER_SIZE + payload_size] = command->calculate_crc();
 }
 
-void write_set_parameter(struct DataFrame *command, uint8_t opcode2, uint8_t single_type_payload) {
+void write_set_parameter(struct DataFrame *command, uint8_t master_address, uint8_t opcode2, uint8_t single_type_payload) {
   uint8_t payload[1] = {single_type_payload};
   write_set_parameter(command, opcode2, payload, 1);
 }
@@ -109,11 +109,11 @@ void write_set_parameter_mode(struct DataFrame *command, const struct TccState *
 }
 
 void write_set_parameter_power(struct DataFrame *command, const struct TccState *state) {
-  write_set_parameter(command, OPCODE2_SET_POWER, state->power | 0b0010);
+  write_set_parameter(command, this->master_address_, OPCODE2_SET_POWER, state->power | 0b0010);
 }
 
 void write_set_parameter_vent(struct DataFrame *command, const struct TccState *state) {
-  write_set_parameter(command, OPCODE2_SET_VENT, state->vent);
+  write_set_parameter(command, this->master_address_, OPCODE2_SET_VENT, state->vent);
 }
 
 uint8_t to_tcc_power(const climate::ClimateMode mode) {
@@ -334,9 +334,7 @@ void ToshibaAbClimate::sync_from_received_state() {
 }
 
 void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
-  switch (frame->source) {
-  //  case 0x00: // 0x00 is the master duplicate case
-    if (frame->source == this->master_address_) {
+  if (frame->source == this->master_address_) {
       // status update
 
       last_master_alive_millis_ = millis();
@@ -445,24 +443,28 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
           log_data_frame("MASTER", frame);
           break;
       }
+    }else {
+      
 
-      break;
-    case TOSHIBA_REMOTE:
-      // command
-      log_data_frame("REMOTE", frame);
-      if (frame->opcode1 == OPCODE_TEMPERATURE) {
-        // current temperature is reported by the remote
-        if (frame->data[3] > 1) {
-          tcc_state.room_temp =
-              static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
-          sync_from_received_state();
-        }
+      if (frame->source == TOSHIBA_REMOTE) {
+
+        // command
+        log_data_frame("REMOTE", frame);
+        if (frame->opcode1 == OPCODE_TEMPERATURE) {
+          // current temperature is reported by the remote
+          if (frame->data[3] > 1) {
+            tcc_state.room_temp =
+                static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
+            sync_from_received_state();
+          }
+        } 
+      }else {
+        // unknown source
+        log_data_frame("UNKNOWN SOURCE", frame);
       }
-      break;
-    default:
-      log_data_frame("UNKNOWN", frame);
-      break;
-  }
+    
+    }
+
 }
 
 bool ToshibaAbClimate::receive_data(const std::vector<uint8_t> data) {
@@ -710,3 +712,6 @@ void ToshibaAbVentSwitch::write_state(bool state) {
 void esphome::toshiba_ab::ToshibaAbClimate::set_master_address(uint8_t address) {
   this->master_address_ = address;
 }
+
+}  // namespace toshiba_ab
+}  // namespace esphome
