@@ -253,7 +253,7 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   void loop() override;
   
   uint8_t master_address_ = 0x00;
-  void set_master_address(uint8_t address) { this->master_address_ = address; }
+  void set_master_address(uint8_t address);
   uint32_t last_temp_log_time_ = 0;  // Counter for BME280 temperature logging
 
   climate::ClimateTraits traits() override;

@@ -74,7 +74,7 @@ uint8_t get_fan_bit_mask_for_mode(uint8_t mode) {
 
 void write_set_parameter(struct DataFrame *command, uint8_t opcode2, uint8_t payload[], size_t payload_size) {
   command->source = TOSHIBA_REMOTE;
-  command->dest = this->master_address_;
+  command->dest = master_address;
   command->opcode1 = OPCODE_PARAMETER;
   command->data_length = SET_PARAMETER_PAYLOAD_HEADER_SIZE + payload_size;
   command->data[0] = COMMAND_MODE_READ;
@@ -336,7 +336,7 @@ void ToshibaAbClimate::sync_from_received_state() {
 void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
   switch (frame->source) {
   //  case 0x00: // 0x00 is the master duplicate case
-    case this->master_address_:
+    if (frame->source == this->master_address_) {
       // status update
 
       last_master_alive_millis_ = millis();
