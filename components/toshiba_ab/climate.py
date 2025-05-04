@@ -28,6 +28,7 @@ CONF_VENT = "vent"
 CONF_FAILED_CRCS = "failed_crcs"
 
 CONF_ON_DATA_RECEIVED = "on_data_received"
+CONF_MASTER = "master"
 
 ToshibaAbClimate =  toshiba_ab_ns.class_(
     "ToshibaAbClimate", climate.Climate, uart.UARTDevice, cg.Component
@@ -43,6 +44,8 @@ ToshibaAbOnDataReceivedTrigger = toshiba_ab_ns.class_(
 
 CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
     {
+        cv.Optional(CONF_MASTER, default=0x00): cv.uint8_t,
+    
         cv.GenerateID(): cv.declare_id(ToshibaAbClimate),
         cv.Optional(CONF_CONNECTED): binary_sensor.binary_sensor_schema(
             device_class = DEVICE_CLASS_CONNECTIVITY,
@@ -85,6 +88,9 @@ async def to_code(config):
     await cg.register_component(var, config)
     await climate.register_climate(var, config)
     await uart.register_uart_device(var, config)
+
+    if CONF_MASTER in config:
+        cg.add(var.set_master_address(config[CONF_MASTER]))
 
     if CONF_CONNECTED in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_CONNECTED])

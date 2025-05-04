@@ -18,7 +18,7 @@ const uint32_t PACKET_MIN_WAIT_MILLIS = 200;
 const uint32_t FRAME_SEND_MILLIS_FROM_LAST_RECEIVE = 500;
 const uint32_t FRAME_SEND_MILLIS_FROM_LAST_SEND = 500;
 
-const uint8_t TOSHIBA_MASTER = 0x00;  //changed from 0X01 to reflect original issalig code
+// const uint8_t TOSHIBA_MASTER = 0x00;  replaced by master_address_ which is setup in yaml
 const uint8_t TOSHIBA_REMOTE = 0x40;
 const uint8_t TOSHIBA_BROADCAST = 0xFE;
 const uint8_t TOSHIBA_REPORT = 0x52;
@@ -252,6 +252,8 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   void setup() override;
   void loop() override;
   
+  uint8_t master_address_ = 0x00;
+  void set_master_address(uint8_t address) { this->master_address_ = address; }
   uint32_t last_temp_log_time_ = 0;  // Counter for BME280 temperature logging
 
   climate::ClimateTraits traits() override;
