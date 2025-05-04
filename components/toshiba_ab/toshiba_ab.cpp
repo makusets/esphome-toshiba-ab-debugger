@@ -92,7 +92,7 @@ void write_set_parameter(struct DataFrame *command, uint8_t master_address, uint
   write_set_parameter(command, master_address, opcode2, payload, 1);
 }
 
-void write_set_parameter_flags(struct DataFrame *command, const struct TccState *state, uint8_t set_flags) {
+void write_set_parameter_flags(struct DataFrame *command, uint8_t master_address, const struct TccState *state, uint8_t set_flags) {
   uint8_t payload[6] = {
       static_cast<uint8_t>(state->mode | set_flags),
       static_cast<uint8_t>(state->fan | get_fan_bit_mask_for_mode(state->mode)),
@@ -633,21 +633,21 @@ std::vector<DataFrame> ToshibaAbClimate::create_commands(const struct TccState *
   if (new_state->mode != tcc_state.mode) {
     ESP_LOGD(TAG, "Changing mode");
     auto command = DataFrame{};
-    write_set_parameter_mode(&command, new_state);
+    write_set_parameter_mode(&command, this->master_address_, new_state);
     commands.push_back(command);
   }
 
   if (new_state->fan != tcc_state.fan) {
     ESP_LOGD(TAG, "Changing fan");
     auto command = DataFrame{};
-    write_set_parameter_flags(&command, new_state, COMMAND_SET_FAN);
+    write_set_parameter_flags(&command, this->master_address_, new_state, COMMAND_SET_FAN);
     commands.push_back(command);
   }
 
   if (new_state->target_temp != tcc_state.target_temp) {
     ESP_LOGD(TAG, "Changing target temperature");
     auto command = DataFrame{};
-    write_set_parameter_flags(&command, new_state, COMMAND_SET_TEMP);
+    write_set_parameter_flags(&command, this->master_address_, new_state, COMMAND_SET_TEMP);
     commands.push_back(command);
   }
 
