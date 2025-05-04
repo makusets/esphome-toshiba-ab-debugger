@@ -1,7 +1,11 @@
-#include "tcc_link.h"
+#include "toshiba_ab.h"
 
 namespace esphome {
 namespace tcc_link {
+
+sensor::Sensor *bme280_temp = nullptr;
+sensor::Sensor *bme280_pressure = nullptr;
+sensor::Sensor *bme280_humidity = nullptr;
 
 static const char *const TAG = "tcc_link.climate";
 
@@ -480,6 +484,7 @@ bool TccLinkClimate::receive_data_frame(const struct DataFrame *frame) {
 
   return true;
 }
+
 
 void TccLinkClimate::loop() {
   // TODO: check if last_unconfirmed_command_ was not confirmed after a timeout

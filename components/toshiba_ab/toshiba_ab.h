@@ -291,6 +291,11 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
   switch_::Switch *vent_switch_{nullptr};
   sensor::Sensor *failed_crcs_sensor_{nullptr};
 
+  // sensors for BME280 configured in yaml and managed by native esphome component
+  extern sensor::Sensor *bme280_temp;
+  extern sensor::Sensor *bme280_pressure;
+  extern sensor::Sensor *bme280_humidity;
+
   // callbacks
   CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
 
