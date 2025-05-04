@@ -89,7 +89,7 @@ void write_set_parameter(struct DataFrame *command, uint8_t master_address, uint
 
 void write_set_parameter(struct DataFrame *command, uint8_t master_address, uint8_t opcode2, uint8_t single_type_payload) {
   uint8_t payload[1] = {single_type_payload};
-  write_set_parameter(command, opcode2, payload, 1);
+  write_set_parameter(command, master_address, opcode2, payload, 1);
 }
 
 void write_set_parameter_flags(struct DataFrame *command, const struct TccState *state, uint8_t set_flags) {
@@ -101,11 +101,11 @@ void write_set_parameter_flags(struct DataFrame *command, const struct TccState 
       get_heat_cool_bits(state->mode),
       get_heat_cool_bits(state->mode),
   };
-  write_set_parameter(command, OPCODE2_SET_TEMP_WITH_FAN, payload, sizeof(payload));
+  write_set_parameter(command, master_address, OPCODE2_SET_TEMP_WITH_FAN, payload, sizeof(payload));
 }
 
 void write_set_parameter_mode(struct DataFrame *command, const struct TccState *state) {
-  write_set_parameter(command, OPCODE2_SET_MODE, state->mode);
+  write_set_parameter(command, master_address, OPCODE2_SET_MODE, state->mode);
 }
 
 void write_set_parameter_power(struct DataFrame *command, uint8_t master_address, const struct TccState *state) {
@@ -712,6 +712,3 @@ void ToshibaAbVentSwitch::write_state(bool state) {
 void esphome::toshiba_ab::ToshibaAbClimate::set_master_address(uint8_t address) {
   this->master_address_ = address;
 }
-
-}  // namespace toshiba_ab
-}  // namespace esphome
