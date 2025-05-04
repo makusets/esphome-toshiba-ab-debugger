@@ -116,6 +116,19 @@ void write_set_parameter_vent(struct DataFrame *command, uint8_t master_address,
   write_set_parameter(command, master_address, OPCODE2_SET_VENT, state->vent);
 }
 
+void write_set_parameter_room_temp(struct DataFrame *command, uint8_t master_address, float temperature) {
+  // Clamp temperature to a safe range (adjust if needed by protocol)
+  float clamped = std::max(0.0f, std::min(temperature, 40.0f));
+
+  // Round to nearest 0.5°C granularity
+  float rounded = std::round(clamped * 2.0f) / 2.0f;
+
+  uint8_t room_temp = temp_celcius_to_payload(rounded);
+
+  // Send using existing 4-argument write_set_parameter
+  write_set_parameter(command, master_address, OPCODE2_SENSOR_ROOM_TEMP, room_temp);
+}
+
 uint8_t to_tcc_power(const climate::ClimateMode mode) {
   switch (mode) {
     case climate::CLIMATE_MODE_OFF:
@@ -515,6 +528,19 @@ void ToshibaAbClimate::loop() {
   if (bme280_temp != nullptr && !std::isnan(bme280_temp->state)) {
     if (millis() - last_temp_log_time_ >= 30000) {
       ESP_LOGI(TAG, "BME280 Ambient Temp: %.2f °C", bme280_temp->state);
+      if (bme280_temp != nullptr && !std::isnan(bme280_temp->state)) {
+        float current = std::round(bme280_temp->state * 2.0f) / 2.0f;  // round to .5°C
+      
+        if (std::isnan(last_sent_temp_) || std::abs(current - last_sent_temp_) >= 0.5f) {
+          ESP_LOGD("toshiba_ab", "Sending ambient temp: %.1f °C", current);
+      
+          DataFrame frame{};
+          write_set_parameter_current_temp(&frame, this->master_address_, current);
+          this->send_command(frame);
+      
+          last_sent_temp_ = current;
+        }
+      }
       last_temp_log_time_ = millis();
     }
   }
