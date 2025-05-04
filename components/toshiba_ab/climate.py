@@ -37,8 +37,8 @@ ToshibaAbVentSwitch =  toshiba_ab_ns.class_(
     "ToshibaAbVentSwitch", switch.Switch, cg.Component
 )
 
-TccLinkOnDataReceivedTrigger = toshiba_ab_ns.class_(
-    "TccLinkOnDataReceivedTrigger", automation.Trigger.template()
+ToshibaAbOnDataReceivedTrigger = toshiba_ab_ns.class_(
+    "ToshibaAbOnDataReceivedTrigger", automation.Trigger.template()
 )
 
 CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
@@ -65,9 +65,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
         ),
         cv.Optional(CONF_ON_DATA_RECEIVED): automation.validate_automation(
             {
-                cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
-                    TccLinkOnDataReceivedTrigger
-                ),
+               cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(ToshibaAbOnDataReceivedTrigger),
             }
         ),
     }
