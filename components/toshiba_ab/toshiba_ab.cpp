@@ -535,7 +535,7 @@ void ToshibaAbClimate::loop() {
           ESP_LOGD("toshiba_ab", "Sending ambient temp: %.1f °C", current);
       
           DataFrame frame{};
-          write_set_parameter_current_temp(&frame, this->master_address_, current);
+          write_set_parameter_room_temp(&frame, this->master_address_, current);
           this->send_command(frame);
       
           last_sent_temp_ = current;
