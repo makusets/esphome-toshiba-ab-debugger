@@ -259,9 +259,9 @@ void ToshibaAbClimate::setup() {
   ESP_LOGD("toshiba", "Setting up ToshibaClimate...");
 
   // Link to sensors only if defined
-  bme280_temp = id(bme280_temp);
-  bme280_pressure = id(bme280_pressure);
-  bme280_humidity = id(bme280_humidity);
+  bme280_temp = &id(bme280_temp);
+  bme280_pressure = &id(bme280_pressure);
+  bme280_humidity = &id(bme280_humidity);
 
 }
 
