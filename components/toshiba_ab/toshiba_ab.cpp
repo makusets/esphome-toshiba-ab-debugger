@@ -104,7 +104,7 @@ void write_set_parameter_flags(struct DataFrame *command, const struct TccState 
   write_set_parameter(command, master_address, OPCODE2_SET_TEMP_WITH_FAN, payload, sizeof(payload));
 }
 
-void write_set_parameter_mode(struct DataFrame *command, const struct TccState *state) {
+void write_set_parameter_mode(struct DataFrame *command, uint8_t master_address, const struct TccState *state) {
   write_set_parameter(command, master_address, OPCODE2_SET_MODE, state->mode);
 }
 
