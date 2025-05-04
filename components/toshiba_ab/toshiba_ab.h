@@ -9,7 +9,7 @@
 #include <queue>
 
 namespace esphome {
-namespace tcc_link {
+namespace toshiba_ab {
 
 const uint32_t ALIVE_MESSAGE_PERIOD_MILLIS = 5000;
 const uint32_t LAST_ALIVE_TIMEOUT_MILLIS = ALIVE_MESSAGE_PERIOD_MILLIS * 3 + 1000;
@@ -244,13 +244,15 @@ struct TccState {
   };
 };
 
-class TccLinkClimate : public Component, public uart::UARTDevice, public climate::Climate {
+class ToshibaAbClimate : public Component, public uart::UARTDevice, public climate::Climate {
  public:
-  TccLinkClimate();
+  ToshibaAbClimate();
 
   void dump_config() override;
   void setup() override;
   void loop() override;
+  
+  uint32_t last_temp_log_time_ = 0;  // Counter for BME280 temperature logging
 
   climate::ClimateTraits traits() override;
   void control(const climate::ClimateCall &call) override;
@@ -291,11 +293,6 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
   switch_::Switch *vent_switch_{nullptr};
   sensor::Sensor *failed_crcs_sensor_{nullptr};
 
-  // sensors for BME280 configured in yaml and managed by native esphome component
-  extern sensor::Sensor *bme280_temp;
-  extern sensor::Sensor *bme280_pressure;
-  extern sensor::Sensor *bme280_humidity;
-
   // callbacks
   CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
 
@@ -313,9 +310,9 @@ class TccLinkClimate : public Component, public uart::UARTDevice, public climate
   uint32_t last_master_alive_millis_ = 0;
 };
 
-class TccLinkVentSwitch : public switch_::Switch, public Component {
+class ToshibaAbVentSwitch : public switch_::Switch, public Component {
  public:
-  TccLinkVentSwitch(TccLinkClimate *climate) { climate_ = climate; }
+  ToshibaAbVentSwitch(ToshibaAbClimate *climate) { climate_ = climate; }
 
   //   void setup() override;
   //   void dump_config() override;
@@ -329,8 +326,15 @@ class TccLinkVentSwitch : public switch_::Switch, public Component {
 
   void write_state(bool state) override;
 
-  TccLinkClimate *climate_;
+  ToshibaAbClimate *climate_;
 };
 
-}  // namespace tcc_link
+}  // namespace toshiba_ab
+
+
 }  // namespace esphome
+
+// sensors for BME280 configured in yaml and managed by native esphome component
+extern sensor::Sensor *bme280_temp;
+extern sensor::Sensor *bme280_pressure;
+extern sensor::Sensor *bme280_humidity;

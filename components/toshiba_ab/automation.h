@@ -6,13 +6,13 @@
 
 namespace esphome
 {
-  namespace tcc_link
+  namespace toshiba_ab
   {
 
-    class TccLinkOnDataReceivedTrigger : public Trigger<std::vector<uint8_t>>
+    class ToshibaAbOnDataReceivedTrigger : public Trigger<std::vector<uint8_t>>
     {
     public:
-      TccLinkOnDataReceivedTrigger(TccLinkClimate *climate)
+      ToshibaAbOnDataReceivedTrigger(ToshibaAbClimate *climate)
       {
         climate->add_on_data_received_callback(
             [this](const struct DataFrame *frame)
@@ -22,5 +22,5 @@ namespace esphome
       }
     };
 
-  } // namespace tcc_link
+  } // namespace toshiba_ab
 } // namespace esphome

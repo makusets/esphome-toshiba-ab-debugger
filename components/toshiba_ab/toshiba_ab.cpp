@@ -1,7 +1,7 @@
 #include "toshiba_ab.h"
 
 namespace esphome {
-namespace tcc_link {
+namespace toshiba_ab {
 
 sensor::Sensor *bme280_temp = nullptr;
 sensor::Sensor *bme280_pressure = nullptr;
@@ -218,7 +218,7 @@ climate::ClimateFanMode to_climate_fan(const struct TccState *state) {
   return climate::CLIMATE_FAN_ON;
 }
 
-TccLinkClimate::TccLinkClimate() {
+ToshibaAbClimate::ToshibaAbClimate() {
   target_temperature = NAN;
   this->traits_.set_supports_action(true);
   this->traits_.set_supports_current_temperature(true);
@@ -243,17 +243,24 @@ TccLinkClimate::TccLinkClimate() {
   this->traits_.set_visual_temperature_step(0.5);
 }
 
-climate::ClimateTraits TccLinkClimate::traits() { return traits_; }
+climate::ClimateTraits ToshibaAbClimate::traits() { return traits_; }
 
-void TccLinkClimate::dump_config() {
+void ToshibaAbClimate::dump_config() {
   ESP_LOGCONFIG(TAG, "TCC Link:");
   this->dump_traits_(TAG);
 }
 
-void TccLinkClimate::setup() {
+void ToshibaAbClimate::setup() {
   if (this->failed_crcs_sensor_ != nullptr) {
     this->failed_crcs_sensor_->publish_state(0);
   }
+  ESP_LOGD("toshiba", "Setting up ToshibaClimate...");
+
+  // Link to sensors only if defined
+  bme280_temp = id(bme280_temp);
+  bme280_pressure = id(bme280_pressure);
+  bme280_humidity = id(bme280_humidity);
+
 }
 
 void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
@@ -284,7 +291,7 @@ void log_raw_data(const std::string prefix, const uint8_t raw[], size_t size) {
   ESP_LOGV(TAG, "%s%s", prefix.c_str(), res.c_str());
 }
 
-void TccLinkClimate::sync_from_received_state() {
+void ToshibaAbClimate::sync_from_received_state() {
   uint8_t changes = 0;
 
   auto new_mode = to_climate_mode(&tcc_state);
@@ -324,7 +331,7 @@ void TccLinkClimate::sync_from_received_state() {
   }
 }
 
-void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
+void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
   switch (frame->source) {
     case 0x00:
     case TOSHIBA_MASTER:
@@ -456,7 +463,7 @@ void TccLinkClimate::process_received_data(const struct DataFrame *frame) {
   }
 }
 
-bool TccLinkClimate::receive_data(const std::vector<uint8_t> data) {
+bool ToshibaAbClimate::receive_data(const std::vector<uint8_t> data) {
   auto frame = DataFrame();
 
   for (size_t i = 0; i < data.size(); i++) {
@@ -466,7 +473,7 @@ bool TccLinkClimate::receive_data(const std::vector<uint8_t> data) {
   return receive_data_frame(&frame);
 }
 
-bool TccLinkClimate::receive_data_frame(const struct DataFrame *frame) {
+bool ToshibaAbClimate::receive_data_frame(const struct DataFrame *frame) {
   if (frame->crc() != frame->calculate_crc()) {
     ESP_LOGW(TAG, "CRC check failed");
     log_data_frame("Failed frame", frame);
@@ -486,7 +493,7 @@ bool TccLinkClimate::receive_data_frame(const struct DataFrame *frame) {
 }
 
 
-void TccLinkClimate::loop() {
+void ToshibaAbClimate::loop() {
   // TODO: check if last_unconfirmed_command_ was not confirmed after a timeout
   // and log warning/error
 
@@ -500,7 +507,14 @@ void TccLinkClimate::loop() {
     this->write_queue_.pop();
     if (this->write_queue_.empty()) {
       ESP_LOGD(TAG, "All frames written");
+    
+  if (bme280_temp != nullptr && !std::isnan(bme280_temp->state)) {
+    if (millis() - last_temp_log_time_ >= 30000) {
+      ESP_LOGI(TAG, "BME280 Ambient Temp: %.2f °C", bme280_temp->state);
+      last_temp_log_time_ = millis();
     }
+  }
+}
   }
 
   uint8_t bytes_read = 0;
@@ -577,7 +591,7 @@ void TccLinkClimate::loop() {
   }
 }
 
-size_t TccLinkClimate::send_new_state(const struct TccState *new_state) {
+size_t ToshibaAbClimate::send_new_state(const struct TccState *new_state) {
   auto commands = create_commands(new_state);
   if (commands.empty()) {
     ESP_LOGD(TAG, "New state has not changed. Nothing to send");
@@ -591,7 +605,7 @@ size_t TccLinkClimate::send_new_state(const struct TccState *new_state) {
   return commands.size();
 }
 
-std::vector<DataFrame> TccLinkClimate::create_commands(const struct TccState *new_state) {
+std::vector<DataFrame> ToshibaAbClimate::create_commands(const struct TccState *new_state) {
   auto commands = std::vector<DataFrame>();
 
   if (new_state->power != tcc_state.power) {
@@ -643,7 +657,7 @@ std::vector<DataFrame> TccLinkClimate::create_commands(const struct TccState *ne
   return commands;
 }
 
-void TccLinkClimate::control(const climate::ClimateCall &call) {
+void ToshibaAbClimate::control(const climate::ClimateCall &call) {
   TccState new_state = TccState{tcc_state};
 
   if (call.get_mode().has_value()) {
@@ -666,12 +680,12 @@ void TccLinkClimate::control(const climate::ClimateCall &call) {
   send_new_state(&new_state);
 }
 
-void TccLinkClimate::send_command(const struct DataFrame command) {
+void ToshibaAbClimate::send_command(const struct DataFrame command) {
   log_data_frame("Enqueue command", &command);
   this->write_queue_.push(command);
 }
 
-bool TccLinkClimate::control_vent(bool state) {
+bool ToshibaAbClimate::control_vent(bool state) {
   if (!tcc_state.power) {
     ESP_LOGW(TAG, "Can't control vent when powered off");
     return false;
@@ -682,11 +696,11 @@ bool TccLinkClimate::control_vent(bool state) {
   return send_new_state(&new_state) > 0;
 }
 
-void TccLinkVentSwitch::write_state(bool state) {
+void ToshibaAbVentSwitch::write_state(bool state) {
   if (this->climate_->control_vent(state)) {
     // don't publish state. wait for the unit to report it's state
   }
 }
 
-}  // namespace tcc_link
+}  // namespace toshiba_ab
 }  // namespace esphome

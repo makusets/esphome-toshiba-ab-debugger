@@ -21,7 +21,7 @@ DEPENDENCIES = ["uart"]
 AUTO_LOAD = ["climate", "binary_sensor", "sensor", "switch"]
 CODEOWNERS = ["@muxa"]
 
-tcc_link_ns = cg.esphome_ns.namespace("tcc_link")
+toshiba_ab_ns = cg.esphome_ns.namespace("toshiba_ab")
 
 CONF_CONNECTED = "connected"
 CONF_VENT = "vent"
@@ -29,21 +29,21 @@ CONF_FAILED_CRCS = "failed_crcs"
 
 CONF_ON_DATA_RECEIVED = "on_data_received"
 
-TccLinkClimate =  tcc_link_ns.class_(
-    "TccLinkClimate", climate.Climate, uart.UARTDevice, cg.Component
+ToshibaAbClimate =  toshiba_ab_ns.class_(
+    "ToshibaAbClimate", climate.Climate, uart.UARTDevice, cg.Component
 )
 
-TccLinkVentSwitch =  tcc_link_ns.class_(
-    "TccLinkVentSwitch", switch.Switch, cg.Component
+ToshibaAbVentSwitch =  toshiba_ab_ns.class_(
+    "ToshibaAbVentSwitch", switch.Switch, cg.Component
 )
 
-TccLinkOnDataReceivedTrigger = tcc_link_ns.class_(
+TccLinkOnDataReceivedTrigger = toshiba_ab_ns.class_(
     "TccLinkOnDataReceivedTrigger", automation.Trigger.template()
 )
 
 CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
     {
-        cv.GenerateID(): cv.declare_id(TccLinkClimate),
+        cv.GenerateID(): cv.declare_id(ToshibaAbClimate),
         cv.Optional(CONF_CONNECTED): binary_sensor.binary_sensor_schema(
             device_class = DEVICE_CLASS_CONNECTIVITY,
             entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
@@ -52,7 +52,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             switch.SWITCH_SCHEMA.extend(
                 cv.Schema(
                     {
-                        cv.GenerateID(): cv.declare_id(TccLinkVentSwitch),
+                        cv.GenerateID(): cv.declare_id(ToshibaAbVentSwitch),
                     }
                 )
             ),
