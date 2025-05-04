@@ -2,7 +2,7 @@
 
 #include "esphome/core/component.h"
 #include "esphome/core/automation.h"
-#include "tcc_link.h"
+#include "toshiba_ab.h"
 
 namespace esphome
 {
