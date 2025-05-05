@@ -84,6 +84,22 @@ void write_set_parameter(struct DataFrame *command, uint8_t master_address, uint
   command->data[SET_PARAMETER_PAYLOAD_HEADER_SIZE + payload_size] = command->calculate_crc();
 }
 
+void write_set_temperature(struct DataFrame *command, uint8_t master_address, uint8_t opcode2, uint8_t payload[], size_t payload_size) {
+  command->source = TOSHIBA_REMOTE;
+  command->dest = master_address;
+  command->opcode1 = OPCODE_TEMPERATURE;
+  command->data_length = SET_PARAMETER_PAYLOAD_HEADER_SIZE + payload_size;
+  command->data[0] = COMMAND_MODE_READ;
+  command->data[1] = opcode2;
+
+  for (size_t i = 0; i < payload_size; i++) {
+    command->data[SET_PARAMETER_PAYLOAD_HEADER_SIZE + i] = payload[i];
+  }
+
+  command->data[SET_PARAMETER_PAYLOAD_HEADER_SIZE + payload_size] = command->calculate_crc();
+}
+
+
 void write_set_parameter(struct DataFrame *command, uint8_t master_address, uint8_t opcode2, uint8_t single_type_payload) {
   uint8_t payload[1] = {single_type_payload};
   write_set_parameter(command, master_address, opcode2, payload, 1);
@@ -122,8 +138,8 @@ void write_set_parameter_room_temp(struct DataFrame *command, uint8_t master_add
 
   uint8_t room_temp = temp_celcius_to_payload(rounded);
 
-  // Send using existing 4-argument write_set_parameter
-  write_set_parameter(command, master_address, OPCODE2_SENSOR_ROOM_TEMP, room_temp);
+  // Send using existing write_set_temperature
+  write_set_temperature(command, master_address, OPCODE2_SENSOR_ROOM_TEMP, room_temp, 1);
 }
 
 uint8_t to_tcc_power(const climate::ClimateMode mode) {
