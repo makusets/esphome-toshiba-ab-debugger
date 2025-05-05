@@ -139,7 +139,7 @@ void write_set_parameter_room_temp(struct DataFrame *command, uint8_t master_add
   uint8_t room_temp [2] = {0x00, temp_celcius_to_payload(rounded)};
 
   // Send using existing write_set_temperature
-  write_set_temperature(command, master_address, OPCODE2_SENSOR_ROOM_TEMP, room_temp, 1);
+  write_set_temperature(command, master_address, OPCODE2_SENSOR_ROOM_TEMP, room_temp, sizeof(room_temp));
 }
 
 uint8_t to_tcc_power(const climate::ClimateMode mode) {
