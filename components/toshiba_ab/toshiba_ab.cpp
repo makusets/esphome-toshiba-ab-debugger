@@ -543,7 +543,7 @@ void ToshibaAbClimate::loop() {
       last_temp_log_time_ = millis();
     }
   }
-}
+
 
 
   uint8_t bytes_read = 0;
