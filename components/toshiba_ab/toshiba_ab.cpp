@@ -1,8 +1,5 @@
 #include "toshiba_ab.h"
 
-esphome::sensor::Sensor *bme280_temp = nullptr;
-esphome::sensor::Sensor *bme280_pressure = nullptr;
-esphome::sensor::Sensor *bme280_humidity = nullptr;
 
 namespace esphome {
 namespace toshiba_ab {
