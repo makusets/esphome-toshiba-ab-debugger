@@ -87,8 +87,7 @@ You will need to build the esphome compatible hardware. Instruction below.
 
 - Switch the AC unit completely off (at the distribution board ideally)
 - Take out the cover of your remote controller
-- Loose the screws of AB terminals. **WARNING**: The PCB assumes A is positive and B is negative. If this is not your case you can damage the PCB. (https://github.com/issalig/toshiba_air_cond/discussions/40#discussioncomment-8149607)
+- Loose the screws of AB terminals. **WARNING**: The PCB assumes A is positive and B is negative. If this is not your case you can damage the PCB.
 - Wire the remote A,B terminals to the pcb A,B ports
 
 ![image](https://github.com/issalig/toshiba_air_cond/blob/master/pcb/remote_back_pcb.jpg)
-![image](https://github.com/issalig/toshiba_air_cond/blob/master/pcb/mounted_board.jpg)
