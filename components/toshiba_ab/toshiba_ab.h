@@ -254,8 +254,7 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   
   uint8_t master_address_ = 0x00;
   void set_master_address(uint8_t address);
-  uint32_t last_temp_log_time_ = 0;  // Counter for BME280 temperature logging
-  float last_sent_temp_ = NAN; // Last sent room temperature to the unit
+
 
   climate::ClimateTraits traits() override;
   void control(const climate::ClimateCall &call) override;
@@ -311,6 +310,9 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   optional<DataFrame> last_unconfirmed_command_;
 
   uint32_t last_master_alive_millis_ = 0;
+
+  uint32_t last_temp_log_time_ = 0;  // Counter for BME280 temperature logging
+  float last_sent_temp_ = NAN; // Last sent room temperature to the unit
 
 
 };
