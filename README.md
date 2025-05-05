@@ -5,12 +5,11 @@ ESPHome component to integrate with Toshiba Air Conditioners via AB line protoco
 
 This project implements functions to decode Toshiba AB protocol from indoor units to wired controllers and provides a hardware design to communicate.
 
-In particular, this project has been tested with remote control unit RBC-AMT32E and RBC-AMT54E and central unit RAV-SM1103DT-A but should work with other models
-
-using the AB protocol.
+In particular, this project has been tested with remote control unit RBC-AMT32E and RBC-AMT54E and central unit RAV-SM1103DT-A but should work with other models using the AB protocol.
 
 
 Requires reader & writer circuit to interface with the AB line, connected to the remote AB ports. 
+The circuit board was designed in easyEDA and all necessary files are included here.
 
 ## To install, add or modify these sections in your esphome device yaml file
 
@@ -50,9 +49,10 @@ climate:
 ```
 
 ## Optional section if you install a BME280 sensor
-## If installed, it will report the temperature to the AC master
+
 
 ```yaml
+# If installed, it will report the temperature to the AC master
 
 i2c:
   sda: GPIO2
@@ -91,3 +91,9 @@ You will need to build the esphome compatible hardware. Instruction below.
 - Wire the remote A,B terminals to the pcb A,B ports
 
 ![image](https://github.com/issalig/toshiba_air_cond/blob/master/pcb/remote_back_pcb.jpg)
+
+# Hardware design
+
+This is the schematic of the board, it is powered by the AB line
+
+![image](hardware/Schematic_Toshiba-Miquel-B-Flag_2025-05-05.png)
