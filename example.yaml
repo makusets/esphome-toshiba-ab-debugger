@@ -41,7 +41,7 @@ i2c:
 external_components:
   - source:
       type: git
-      url: https://github.com/makusets/esphome-tcc-link
+      url: https://github.com/makusets/esphome-toshiba-ab
 
 uart:
   tx_pin: GPIO15
