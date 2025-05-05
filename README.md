@@ -83,7 +83,9 @@ sensor:
 
 # Hardware installation
 
-You will need to build the esphome compatible hardware. Instruction below.
+You will need to build the esphome compatible hardware. Instructions below.
+
+- Most likely, the first time, you will have to flash the board with the firmware via USB, typical ESPHome process. Once working, OTA updates will work.
 
 - Isolate the AC unit completely off (at the electrical distribution board ideally)
 - Take out the cover of your remote controller
@@ -97,3 +99,12 @@ You will need to build the esphome compatible hardware. Instruction below.
 This is the schematic of the board, it is powered by the AB line
 
 ![image](hardware/Schematic_Toshiba-Miquel-B-Flag_2025-05-05.png)
+
+
+It should look something like that
+
+![image](hardware/board.PNG)
+
+All files necessary can be found in the hardware folder, including the EasyEDA Project:
+
+https://github.com/makusets/esphome-tcc-link/tree/main/hardware
