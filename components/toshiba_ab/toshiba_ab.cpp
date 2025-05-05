@@ -521,9 +521,7 @@ void ToshibaAbClimate::loop() {
     this->write_queue_.pop();
     if (this->write_queue_.empty()) {
       ESP_LOGD(TAG, "All frames written");
-  if (millis() - last_temp_log_time_ >= 10000)  {
-    ESP_LOGD("toshiba_ab", "Temp ptr = %p, state = %.2f", bme280_temp, bme280_temp ? bme280_temp->state : -999);
-    last_temp_log_time_ = millis();
+    }
   }
 
   if (bme280_temp != nullptr && !std::isnan(bme280_temp->state)) {
