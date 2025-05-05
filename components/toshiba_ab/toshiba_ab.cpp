@@ -544,7 +544,7 @@ void ToshibaAbClimate::loop() {
     }
   }
 }
-  }
+
 
   uint8_t bytes_read = 0;
 
