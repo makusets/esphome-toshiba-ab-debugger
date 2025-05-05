@@ -136,7 +136,7 @@ void write_set_parameter_room_temp(struct DataFrame *command, uint8_t master_add
   // Round to nearest 0.5°C granularity
   float rounded = std::round(clamped * 2.0f) / 2.0f;
 
-  uint8_t room_temp [1] = temp_celcius_to_payload(rounded);
+  uint8_t room_temp [1] = {temp_celcius_to_payload(rounded)};
 
   // Send using existing write_set_temperature
   write_set_temperature(command, master_address, OPCODE2_SENSOR_ROOM_TEMP, room_temp, 1);
