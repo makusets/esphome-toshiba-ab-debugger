@@ -26,7 +26,7 @@ logger:
 external_components:
   - source:
       type: git
-      url: https://github.com/makusets/esphome-tcc-link
+      url: https://github.com/makusets/esphome-toshiba-ab
 
 ```
 
@@ -120,4 +120,4 @@ If a BME280 sensor is installed and setup in yaml, it will be used by the board 
 
 All files necessary can be found in the hardware folder, including the EasyEDA Project:
 
-https://github.com/makusets/esphome-tcc-link/tree/main/hardware
+https://github.com/makusets/esphome-toshiba-ab/tree/main/hardware
