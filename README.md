@@ -9,7 +9,7 @@ Requires reader & writer circuit for the AB line: https://github.com/issalig/tos
 ```yaml
 
 logger:
-  baud_rate: 0  #disable hardware UART log, necessary to use the pins for UART communication with the AC unit 
+  baud_rate: 0  #disable hardware UART log to use pins for UART communication with the AC unit 
   level: DEBUG
 
 external_components:
