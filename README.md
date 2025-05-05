@@ -11,6 +11,10 @@ In particular, this project has been tested with remote control unit RBC-AMT32E 
 Requires reader & writer circuit to interface with the AB line, connected to the remote AB ports. 
 The circuit board was designed in easyEDA and all necessary files are included here.
 
+Most of the work is based on previous work from @muxa: https://github.com/muxa/esphome-tcc-link
+and the hard bits of decoding and initial board design by @issalig https://github.com/issalig/toshiba_air_cond
+
+
 ## To install, add or modify these sections in your esphome device yaml file
 
 ```yaml
@@ -104,6 +108,10 @@ This is the schematic of the board, it is powered by the AB line
 It should look something like that
 
 ![image](hardware/board.PNG)
+
+
+I2C headers have been added for the BME280 I2C sensor option, also for future inclusion of a screen or other I2C device
+If a BME280 sensor is installed and setup in yaml, it will be used by the board to report room temperature to the central AC
 
 All files necessary can be found in the hardware folder, including the EasyEDA Project:
 
