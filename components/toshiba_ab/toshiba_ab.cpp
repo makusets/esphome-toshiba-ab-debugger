@@ -343,6 +343,8 @@ void ToshibaAbClimate::sync_from_received_state() {
   if (tcc_state.target_temp > 15 && tcc_state.target_temp <30 && target_temperature != tcc_state.target_temp) {
     target_temperature = tcc_state.target_temp;
     changes++;
+  else {
+    ESP_LOGW(TAG, "Invalid target temperature: %f", tcc_state.target_temp);}
   }
 
   if (current_temperature != tcc_state.room_temp) {
@@ -550,11 +552,11 @@ void ToshibaAbClimate::loop() {
         float current = std::round(bme280_temp->state * 2.0f) / 2.0f;  // round to .5°C
       
         if (std::isnan(last_sent_temp_) || std::abs(current - last_sent_temp_) >= 0.5f) {
-          ESP_LOGD("toshiba_ab", "Sending ambient temp: %.1f °C", current);
+        //  ESP_LOGD("toshiba_ab", "Sending ambient temp: %.1f °C", current);
       
-          DataFrame frame{};
-          write_set_parameter_room_temp(&frame, this->master_address_, current);
-          this->send_command(frame);
+        //  DataFrame frame{};
+        //  write_set_parameter_room_temp(&frame, this->master_address_, current);
+        //  this->send_command(frame);
       
           last_sent_temp_ = current;
         }
