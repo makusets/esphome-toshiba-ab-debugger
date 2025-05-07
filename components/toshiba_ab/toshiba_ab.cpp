@@ -456,7 +456,7 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
             TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET);
           } else {
             ESP_LOGD(TAG, "Error - target temp read: %f", (static_cast<float>(frame->data[STATUS_DATA_TARGET_TEMP_BYTE] & TEMPERATURE_DATA_MASK) /
-            TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET);
+            TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET));
           }
 //          tcc_state.target_temp = static_cast<float>(frame->data[STATUS_DATA_TARGET_TEMP_BYTE] & TEMPERATURE_DATA_MASK) /
 //                  TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
