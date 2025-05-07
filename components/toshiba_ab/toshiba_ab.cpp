@@ -482,7 +482,7 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
     //        tcc_state.room_temp =
     //            static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
     //        sync_from_received_state();
-          }
+    //      }
         } 
       }else {
         // unknown source
