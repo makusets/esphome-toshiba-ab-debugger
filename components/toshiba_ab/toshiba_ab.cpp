@@ -476,14 +476,16 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
 
         // command
         log_data_frame("REMOTE", frame);
-    //    if (frame->opcode1 == OPCODE_TEMPERATURE) {
+        if (frame->opcode1 == OPCODE_TEMPERATURE) {
     //      // current temperature is reported by the remote
+          last_temp_log_time_ = millis();
+          last_sent_temp_ = static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
     //      if (frame->data[3] > 1) {
     //        tcc_state.room_temp =
     //            static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
     //        sync_from_received_state();
     //      }
-    //    } 
+        } 
       }else {
         // unknown source
         log_data_frame("UNKNOWN SOURCE", frame);
