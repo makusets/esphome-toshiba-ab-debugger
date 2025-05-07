@@ -483,7 +483,7 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
     //            static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
     //        sync_from_received_state();
     //      }
-        } 
+    //    } 
       }else {
         // unknown source
         log_data_frame("UNKNOWN SOURCE", frame);
