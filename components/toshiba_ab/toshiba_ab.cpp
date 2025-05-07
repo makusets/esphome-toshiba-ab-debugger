@@ -448,6 +448,13 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
           tcc_state.fan = (frame->data[STATUS_DATA_FANVENT_BYTE] & STATUS_DATA_FAN_MASK) >> STATUS_DATA_FAN_SHIFT_BITS;
           tcc_state.vent =
               (frame->data[STATUS_DATA_FANVENT_BYTE] & STATUS_DATA_VENT_MASK) >> STATUS_DATA_VENT_SHIFT_BITS;
+          float read_target_temp = static_cast<float>(frame->data[STATUS_DATA_TARGET_TEMP_BYTE + 1]) /
+              TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
+          if (read_target_temp > 15 && read_target_temp < 30) {
+            tcc_state.target_temp = read_target_temp;
+          } else {
+            ESP_LOGD(TAG, "Error - target temp read: %f", read_target_temp);
+          }
           tcc_state.target_temp =
               static_cast<float>(frame->data[STATUS_DATA_TARGET_TEMP_BYTE] & TEMPERATURE_DATA_MASK) /
                   TEMPERATURE_CONVERSION_RATIO -
@@ -477,7 +484,8 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
         // command
         log_data_frame("REMOTE", frame);
         if (frame->opcode1 == OPCODE_TEMPERATURE) {
-    //      // current temperature is reported by the remote
+        // current temperature is reported by the remote
+        // reset last temp log time and last sent temp to prevent clashing with bme280      
           last_temp_log_time_ = millis();
           last_sent_temp_ = static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
     //      if (frame->data[3] > 1) {
