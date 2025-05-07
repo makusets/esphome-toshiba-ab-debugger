@@ -312,7 +312,7 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   uint32_t last_master_alive_millis_ = 0;
 
   uint32_t last_temp_log_time_ = 0;  // Counter for BME280 temperature logging
-  float last_sent_temp_ = NAN; // Last sent room temperature to the unit
+  float last_sent_temp_ = 1; // Last sent room temperature to the unit
 
 
 };
