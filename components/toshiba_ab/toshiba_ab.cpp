@@ -476,12 +476,12 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
 
         // command
         log_data_frame("REMOTE", frame);
-        if (frame->opcode1 == OPCODE_TEMPERATURE) {
-          // current temperature is reported by the remote
-          if (frame->data[3] > 1) {
-            tcc_state.room_temp =
-                static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
-            sync_from_received_state();
+    //    if (frame->opcode1 == OPCODE_TEMPERATURE) {
+    //      // current temperature is reported by the remote
+    //      if (frame->data[3] > 1) {
+    //        tcc_state.room_temp =
+    //            static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
+    //        sync_from_received_state();
           }
         } 
       }else {
@@ -541,7 +541,7 @@ void ToshibaAbClimate::loop() {
   }
 
   if (bme280_temp != nullptr && !std::isnan(bme280_temp->state)) {
-    if (millis() - last_temp_log_time_ >= 30000) {
+    if (millis() - last_temp_log_time_ >= 120000) {
       ESP_LOGI(TAG, "BME280 Ambient Temp: %.2f °C", bme280_temp->state);
       if (bme280_temp != nullptr && !std::isnan(bme280_temp->state)) {
         float current = std::round(bme280_temp->state * 2.0f) / 2.0f;  // round to .5°C
