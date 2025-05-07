@@ -343,9 +343,9 @@ void ToshibaAbClimate::sync_from_received_state() {
   if (tcc_state.target_temp > 15 && tcc_state.target_temp <30 && target_temperature != tcc_state.target_temp) {
     target_temperature = tcc_state.target_temp;
     changes++;
-  else {
+  }else {
     ESP_LOGW(TAG, "Invalid target temperature: %f", tcc_state.target_temp);}
-  }
+  
 
   if (current_temperature != tcc_state.room_temp) {
     current_temperature = tcc_state.room_temp;
