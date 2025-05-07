@@ -558,7 +558,7 @@ void ToshibaAbClimate::loop() {
         //  write_set_parameter_room_temp(&frame, this->master_address_, current);
         //  this->send_command(frame);
       
-          last_sent_temp_ = current;
+        last_sent_temp_ = current;
         }
       }
       last_temp_log_time_ = millis();
