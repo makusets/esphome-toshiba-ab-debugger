@@ -56,12 +56,10 @@ climate:
 
 This option is not really needed.
 
-The option of a BME280 sensor is added to give the option of reading the temperature and report it through the AB protocol as room temperature. The option was added to solve an issue with the default behaviouur of Toshiba units. They will read the room temperature from the return duct air coming into the indoor unit, this can be sometimes inaccurate depending on the design. In that case, the AC unit can be configured to use the temperature sensor on the original Toshiba remote, this is done by accessing the service menu (DN codes) an changing field 32 to 0001. However, even in this case, the Toshiba remote reports the temperature at quite long intervals, meaning the temperature might swing up and down a bit too much. With the BME280 sensor installed, the temperature is reported whenever there is a 0.5 degree variation.
-
-The inclusion of extra messages in the protocol raises the risk of communication erros between the remote and central unit.
+The option of a BME280 sensor is added to give the option of reading the temperature, pressure and humidity from the thermostat. It is done as any other sensor in the Home Assistant environment. If configured, it will be exposed to the frontend.
 
 ```yaml
-# If installed, it will report the temperature to the AC master
+# If installed, it will report the BME280 temp, humidity and pressure values
 
 i2c:
   sda: GPIO2
