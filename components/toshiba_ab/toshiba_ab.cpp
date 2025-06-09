@@ -340,12 +340,19 @@ void ToshibaAbClimate::sync_from_received_state() {
     changes++;
   }
 
-  if (target_temperature != tcc_state.target_temp) {
+  if (target_temperature != tcc_state.target_temp && tcc_state.target_temp >= 16 &&
+      tcc_state.target_temp <= 29) {
+    // only update target temperature if it's within the supported range
+    // (16-29°C)
+    //this filters out misreadings from the remote
     target_temperature = tcc_state.target_temp;
     changes++;
   }
 
-  if (current_temperature != tcc_state.room_temp) {
+  if (current_temperature != tcc_state.room_temp && tcc_state.room_temp >= 5 &&
+      tcc_state.room_temp <= 35) {
+    // only update current temperature if it's within normal range
+    //this filters out misreadings from the remote
     current_temperature = tcc_state.room_temp;
     changes++;
   }
@@ -425,10 +432,7 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
               static_cast<float>(frame->data[STATUS_DATA_TARGET_TEMP_BYTE] & TEMPERATURE_DATA_MASK) /
                   TEMPERATURE_CONVERSION_RATIO -
               TEMPERATURE_CONVERSION_OFFSET;
-          // don't set heating of cooling from command status update, since the
-          // actuall will be delayed and will e reported via MASTER PARAMETER
-          // tcc_state.cooling = (frame->data[7] & 0b1000) >> 3;
-          // tcc_state.heating = (frame->data[7] & 0b0001);
+
           tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
 
           ESP_LOGD(TAG, "Mode: %02X, Preheating: %d", tcc_state.mode, tcc_state.preheating);
