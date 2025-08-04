@@ -9,10 +9,14 @@ Alternatively, you can order the board from places like JLCPCB. You will need th
   - BOM_01.csv or BOM_02.csv: Just choose one of them, they are slightly different format to maximise compatibility. They contain the list of components (BOM).
   - PickAndPlace.csv: The information on where to place the component on the board.
 
+When ordering, make sure all components are selected in the list (components that incur an extra fee, need to be manually ticked)
+Use the 3D view to double check that all components appear on the board.
+
+
 ## Component shortfall
 
 It often happens that components are out of stock or become unavailable and need to be replaced when uploading the BOM file. If you are not comfortable in doing so,
-tick the option of "parts sourced by JLCPCB" instead of "by customer". That should make it easy to replace shortfalls.
+tick the option of "parts sourced by JLCPCB" instead of "by customer". That should make it easy to replace shortfalls. Otherwise, use the search option and look for an equivalent component. The 3D view on the next page can be useful to double check that you made the right choice.
 
 
 ![image](Board.JPG)
