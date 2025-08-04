@@ -15,11 +15,11 @@ It often happens that components are out of stock or become unavailable and need
 tick the option of "parts sourced by JLCPCB" instead of "by customer". That should make it easy to replace shortfalls.
 
 
-![image](hardware/Board.JPG)
+![image](Board.JPG)
 
 # Schematic
 
 This is the schematic of the board.
 
-![image](hardware/Schematic.JPG)
+![image](Schematic.JPG)
 
