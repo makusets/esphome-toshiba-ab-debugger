@@ -31,5 +31,5 @@ This is the schematic of the board.
 
 This is how I installed it
 
-![image](Final.jpg)|width=100
+![image](Final.jpg)
 
