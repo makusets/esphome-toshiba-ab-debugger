@@ -18,8 +18,8 @@ Use the 3D view to double check that all components appear on the board.
 It often happens that components are out of stock or become unavailable and need to be replaced when uploading the BOM file. If you are not comfortable in doing so,
 tick the option of "parts sourced by JLCPCB" instead of "by customer". That should make it easy to replace shortfalls. Otherwise, use the search option and look for an equivalent component. The 3D view on the next page can be useful to double check that you made the right choice.
 
+<img src="Board.JPG" width="400">
 
-![image](Board.JPG)
 
 # Schematic
 
