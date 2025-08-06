@@ -30,6 +30,7 @@ This is the schematic of the board.
 # Final product
 
 This is how I installed it
+
 <img src="Final.jpg" width="300">
 
 
