@@ -110,7 +110,7 @@ This is the schematic of the board, it is powered by the AB line
 
 It should look something like that
 
-![image](hardware/board.JPG)
+![image](hardware/Board.JPG)
 
 
 I2C headers have been added for the BME280 I2C sensor option, also for future inclusion of a screen or other I2C device
