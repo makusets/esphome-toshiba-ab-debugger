@@ -105,12 +105,12 @@ You will need to build the esphome compatible hardware. Instructions below.
 
 This is the schematic of the board, it is powered by the AB line
 
-![image](hardware/Schematic_Toshiba-Miquel-B-Flag_2025-05-05.png)
+![image](hardware/Schematic.JPG)
 
 
 It should look something like that
 
-![image](hardware/board.PNG)
+![image](hardware/board.JPG)
 
 
 I2C headers have been added for the BME280 I2C sensor option, also for future inclusion of a screen or other I2C device
