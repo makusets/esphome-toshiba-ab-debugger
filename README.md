@@ -28,11 +28,6 @@ external_components:
       type: git
       url: https://github.com/makusets/esphome-toshiba-ab
 
-```
-
-## Setup in yaml
-
-```yaml
 uart:
   tx_pin: GPIO15
   rx_pin: GPIO13
