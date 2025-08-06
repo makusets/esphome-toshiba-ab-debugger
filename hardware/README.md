@@ -25,7 +25,7 @@ tick the option of "parts sourced by JLCPCB" instead of "by customer". That shou
 
 This is the schematic of the board.
 
-![image](Schematic.JPG)
+<img src="Schematic.JPG" width="400">
 
 # Final product
 
