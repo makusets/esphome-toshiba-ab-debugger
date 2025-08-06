@@ -31,5 +31,5 @@ This is the schematic of the board.
 
 This is how I installed it
 
-![image](IMG_20250804_083627.jpg)
+![image](Final.jpg)
 
