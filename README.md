@@ -114,7 +114,7 @@ It should look something like that
 
 
 I2C headers have been added for the BME280 I2C sensor option, also for future inclusion of a screen or other I2C device
-If a BME280 sensor is installed and setup in yaml, it will be used by the board to report room temperature to the central AC
+If a BME280 sensor is installed and setup in yaml it will report the readings to HA
 
 All files necessary can be found in the hardware folder, including the EasyEDA Project:
 
