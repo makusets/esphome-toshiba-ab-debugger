@@ -27,3 +27,9 @@ This is the schematic of the board.
 
 ![image](Schematic.JPG)
 
+# Final product
+
+This is how I installed it
+
+![image](IMG_20250804_083627.jpg)
+
