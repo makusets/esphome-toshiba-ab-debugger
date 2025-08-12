@@ -313,6 +313,8 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   uint32_t loops_without_reads_ = 0;
   uint32_t loops_with_reads_ = 0;
   uint32_t last_read_millis_ = 0;
+  uint32_t last_sent_millis_ = 0;
+  uint32_t last_received_millis_ = 0;
   bool can_read_packet = false;
 
   uint32_t last_received_frame_millis_ = 0;

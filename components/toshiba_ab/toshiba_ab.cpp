@@ -537,7 +537,7 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
         frame->data[1] == 0x81) {
       uint8_t raw = frame->data[3] & TEMPERATURE_DATA_MASK;  // raw[7]
       float rmt = static_cast<float>(raw) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
-      if (isfinite(rmt) && rmt > -20 && rmt < 60) {
+      if (rmt > -20 && rmt < 60) {
         tcc_state.room_temp = rmt;
         log_data_frame("Remote temperature", frame);
         ESP_LOGD(TAG, "Remote temperature: %.1f °C", tcc_state.room_temp);
@@ -556,7 +556,7 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
       // unknown remote message
       log_data_frame("Unknown remote data", frame);
     }
-    else {
+    } else {
       ESP_LOGD(TAG, "Received data from unknown source: %02X", frame->source);
       log_data_frame("Unknown source", frame);
     }
