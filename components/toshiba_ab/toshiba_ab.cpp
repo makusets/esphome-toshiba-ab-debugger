@@ -495,15 +495,16 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
         }
       }else {
       // unknown remote message
-      log_raw_data("Unknown remote data: ", frame);
+      log_data_frame("Unknown remote data: ", frame);
       }
     }
     else {
       ESP_LOGD(TAG, "Received data from unknown source: %02X", frame->source);
       log_data_frame("Unknown source", frame);
     }
-}
-
+    }
+  }
+  
 bool ToshibaAbClimate::receive_data(const std::vector<uint8_t> data) {
   auto frame = DataFrame();
 
