@@ -30,6 +30,8 @@ CONF_FAILED_CRCS = "failed_crcs"
 CONF_ON_DATA_RECEIVED = "on_data_received"
 CONF_MASTER = "master"
 
+CONF_AUTONOMOUS = "autonomous"
+
 ToshibaAbClimate =  toshiba_ab_ns.class_(
     "ToshibaAbClimate", climate.Climate, uart.UARTDevice, cg.Component
 )
@@ -71,6 +73,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
                cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(ToshibaAbOnDataReceivedTrigger),
             }
         ),
+        cv.Optional(CONF_AUTONOMOUS, default=False): cv.boolean,
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 
@@ -110,3 +113,5 @@ async def to_code(config):
             await automation.build_automation(
                 data_trigger, [(cg.std_vector.template(cg.uint8), "x")], on_data_received
             )
+    if CONF_AUTONOMOUS in config:
+        cg.add(var.set_autonomous(config[CONF_AUTONOMOUS]))

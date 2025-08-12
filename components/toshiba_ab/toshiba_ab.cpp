@@ -142,6 +142,35 @@ void write_set_parameter_room_temp(struct DataFrame *command, uint8_t master_add
   write_set_temperature(command, master_address, OPCODE2_SENSOR_ROOM_TEMP, room_temp, sizeof(room_temp));
 }
 
+void write_read_envelope(DataFrame *cmd, uint8_t master_address,
+                         uint8_t opcode2, const uint8_t payload[], size_t payload_size) {
+// Writes a read envelope command
+// This is used to read data from the master unit, such as status or parameters
+// And to send remote PING/KEEP_ALIVE commands
+  cmd->source      = TOSHIBA_REMOTE;
+  cmd->dest        = master_address;
+  cmd->opcode1     = OPCODE_ERROR_HISTORY;             // 0x15
+  cmd->data_length = SET_PARAMETER_PAYLOAD_HEADER_SIZE + payload_size;
+  cmd->data[0]     = COMMAND_MODE_READ;                // 0x08
+  cmd->data[1]     = opcode2;                          // e.g., OPCODE2_PING_PONG (0x0C)
+
+  for (size_t i = 0; i < payload_size; i++)
+    cmd->data[SET_PARAMETER_PAYLOAD_HEADER_SIZE + i] = payload[i];
+
+  cmd->data[SET_PARAMETER_PAYLOAD_HEADER_SIZE + payload_size] = cmd->calculate_crc();
+}
+
+
+
+void ToshibaAbClimate::send_ping() { // Sends a PING command to the master unit, command goes into queue, sent when loop() finds it
+  DataFrame cmd{};
+  // Tail = 0x81, 0x00, 0x00, 0x48, 0x00  (matches the reference ping)
+  const uint8_t tail[] = { OPCODE2_READ_STATUS, 0x00, 0x00, 0x48, 0x00 };
+  write_read_envelope(&cmd, this->master_address_, OPCODE2_PING_PONG, tail, sizeof(tail));
+  this->send_command(cmd);
+}
+
+
 uint8_t to_tcc_power(const climate::ClimateMode mode) {
   switch (mode) {
     case climate::CLIMATE_MODE_OFF:
@@ -289,6 +318,25 @@ void ToshibaAbClimate::setup() {
   bme280_pressure = &id(bme280_pressure);
   bme280_humidity = &id(bme280_humidity);
 
+  // Send ping if autonomous mode is enabled using set_interval calls every ping_interval_ms_ (30s))
+  if (this->autonomous_) {
+  this->set_interval(this->ping_interval_ms_, [this]()) {
+    // be nice to the bus: don't spam if we're actively chatting
+    const uint32_t now = millis();
+    const bool queue_empty = this->write_queue_.empty();
+    const bool bus_idle =
+        (now - this->last_received_millis_  > FRAME_SEND_MILLIS_FROM_LAST_RECEIVE) &&
+        (now - this->last_sent_millis_      > FRAME_SEND_MILLIS_FROM_LAST_SEND);
+
+    // Optional: only ping if we haven't heard the master lately (reduces noise)
+    const bool stale_master =
+        (now - this->last_master_alive_millis_) > (this->ping_interval_ms_ - 5000);
+
+    if (queue_empty && bus_idle && stale_master) {
+      this->send_ping();  // just enqueues; loop() will transmit
+    }
+    }
+  }
 }
 
 void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
@@ -481,22 +529,32 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
       }
     }else {
     if (frame->source == TOSHIBA_REMOTE) {
-        ESP_LOGD(TAG, "Received data from remote:");
-  
-      if (frame->opcode1 == OPCODE_TEMPERATURE) {
-        if (frame->data[1] == 0x81) {
-          float rmt = (frame->data[7] & TEMPERATURE_DATA_MASK) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
-          if (rmt > 1) {  // same defensive check you use elsewhere
-            tcc_state.room_temp = rmt;            
-            log_data_frame("Remote temperature", frame);
-            ESP_LOGD(TAG, "Remote temperature: %.1f °C", tcc_state.room_temp);
-            sync_from_received_state();            
-          }
-        }
-      }else {
-      // unknown remote message
-      log_data_frame("Unknown remote data: ", frame);
+    ESP_LOGD(TAG, "Received data from remote:");
+
+    // Remote temperature push: 40 00 55 05 08 81 01 6E 00 ..
+    if (frame->opcode1 == OPCODE_TEMPERATURE &&
+        frame->data_length >= 4 &&
+        frame->data[1] == 0x81) {
+      uint8_t raw = frame->data[3] & TEMPERATURE_DATA_MASK;  // raw[7]
+      float rmt = static_cast<float>(raw) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
+      if (isfinite(rmt) && rmt > -20 && rmt < 60) {
+        tcc_state.room_temp = rmt;
+        log_data_frame("Remote temperature", frame);
+        ESP_LOGD(TAG, "Remote temperature: %.1f °C", tcc_state.room_temp);
+        sync_from_received_state();
       }
+
+    // Remote PING request: 40 00 15 07 08 0C 81 00 00 48 00 ..
+    } else if (frame->opcode1 == OPCODE_ERROR_HISTORY &&      // 0x15 envelope
+              frame->data_length >= 3 &&
+              frame->data[0] == COMMAND_MODE_READ &&         // 0x08
+              frame->data[1] == OPCODE2_PING_PONG &&         // 0x0C
+              frame->data[2] == OPCODE2_READ_STATUS) {       // 0x81
+      log_data_frame("Remote PING", frame);
+
+    } else {
+      // unknown remote message
+      log_data_frame("Unknown remote data", frame);
     }
     else {
       ESP_LOGD(TAG, "Received data from unknown source: %02X", frame->source);

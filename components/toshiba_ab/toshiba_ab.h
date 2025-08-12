@@ -23,7 +23,7 @@ const uint8_t TOSHIBA_REMOTE = 0x40;
 const uint8_t TOSHIBA_BROADCAST = 0xFE;
 const uint8_t TOSHIBA_REPORT = 0x52;
 
-const uint8_t OPCODE_PING = 0x10;
+const uint8_t OPCODE_PING = 0x10;  
 const uint8_t OPCODE_PARAMETER = 0x11;
 const uint8_t OPCODE_ERROR_HISTORY = 0x15;
 const uint8_t OPCODE_SENSOR_QUERY = 0x17;
@@ -272,6 +272,9 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   void set_failed_crcs_sensor(sensor::Sensor *failed_crcs_sensor) { this->failed_crcs_sensor_ = failed_crcs_sensor; }
 
   void send_command(struct DataFrame command);
+  void set_autonomous(bool v) { autonomous_ = v; }
+  
+  void send_ping();
 
   bool control_vent(bool state);
 
@@ -301,6 +304,10 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
 
   // callbacks
   CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
+
+  //autonomous mode
+  bool autonomous_ = false;
+  uint32_t ping_interval_ms_ = 30000;  // default ping interval
 
  private:
   uint32_t loops_without_reads_ = 0;
