@@ -489,6 +489,7 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
           if (rmt > 1) {  // same defensive check you use elsewhere
             tcc_state.room_temp = rmt;            
             log_data_frame("Remote temperature", frame);
+            ESP_LOGD(TAG, "Remote temperature: %.1f °C", tcc_state.room_temp);
             sync_from_received_state();            
           }
         }
