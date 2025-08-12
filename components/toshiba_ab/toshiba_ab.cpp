@@ -484,13 +484,11 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
         ESP_LOGD(TAG, "Received data from remote:");
   
       if (frame->opcode1 == OPCODE_TEMPERATURE) {
-        // Match the 0x55/0x81 remote temp structure from ac_protocol
-        log_data_frame("Remote temperature", frame);
-        if (frame->data_length >= 8 && frame->data[2] == 0x55 && frame->data[5] == 0x81) {
-          log_data_frame("Remote temperature", frame);
+        if (frame->data[1] == 0x81) {
           float rmt = (frame->data[7] & TEMPERATURE_DATA_MASK) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
           if (rmt > 1) {  // same defensive check you use elsewhere
             tcc_state.room_temp = rmt;            
+            log_data_frame("Remote temperature", frame);
             sync_from_received_state();            
           }
         }
