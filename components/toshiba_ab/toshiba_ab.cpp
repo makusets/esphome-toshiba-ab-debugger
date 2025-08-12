@@ -320,7 +320,7 @@ void ToshibaAbClimate::setup() {
 
   // Send ping if autonomous mode is enabled using set_interval calls every ping_interval_ms_ (30s))
   if (this->autonomous_) {
-  this->set_interval(this->ping_interval_ms_, [this]()) {
+  this->set_interval(this->ping_interval_ms_, [this]() {
     // be nice to the bus: don't spam if we're actively chatting
     const uint32_t now = millis();
     const bool queue_empty = this->write_queue_.empty();
@@ -335,7 +335,7 @@ void ToshibaAbClimate::setup() {
     if (queue_empty && bus_idle && stale_master) {
       this->send_ping();  // just enqueues; loop() will transmit
     }
-    }
+    });
   }
 }
 
