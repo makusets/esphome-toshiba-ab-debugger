@@ -369,19 +369,23 @@ void ToshibaAbClimate::sync_from_received_state() {
 void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
   if (frame->source == this->master_address_) {
       // status update
-
+      ESP_LOGD(TAG, "Received data from master:");
       last_master_alive_millis_ = millis();
       if (this->connected_binary_sensor_) {
         this->connected_binary_sensor_->publish_state(true);
       }
 
       switch (frame->opcode1) {
-        case OPCODE_PING:
-          log_data_frame("PING", frame);
-          break;
-          // case OPCODE_ACK:
-          // ESP_LOGD(TAG, " Command acknoledged");
-          break;
+        case OPCODE_PING: {
+        log_data_frame("PING/ALIVE", frame);
+        break;
+        }
+        case OPCODE_ACK: {
+        // ACK (maps to 0xA1)
+        log_data_frame("ACK", frame);
+        if (last_unconfirmed_command_.has_value()) last_unconfirmed_command_.reset();
+        break;
+      }
         case OPCODE_PARAMETER:
           // master reporting it's state
           // e.g. 01:52:11:04:80:86:A1:05:E4
@@ -398,7 +402,6 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
               (frame->data[STATUS_DATA_MODEPOWER_BYTE] & STATUS_DATA_MODE_MASK) >> STATUS_DATA_MODE_SHIFT_BITS;
           tcc_state.cooling = (frame->data[STATUS_DATA_MODEPOWER_BYTE] & 0b00001000) >> 3;
           tcc_state.heating = (frame->data[STATUS_DATA_MODEPOWER_BYTE] & 0b00000001);
-          // tcc_state.heating = (frame->data[3] & 0b0100) >> 2;
           tcc_state.preheating = (frame->data[3] & 0b0100) >> 2;
 
           ESP_LOGD(TAG, "Mode: %02X, Cooling: %d, Heating: %d, Preheating: %d", tcc_state.mode, tcc_state.cooling,
@@ -433,9 +436,9 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
                   TEMPERATURE_CONVERSION_RATIO -
               TEMPERATURE_CONVERSION_OFFSET;
 
-          tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
-
-          ESP_LOGD(TAG, "Mode: %02X, Preheating: %d", tcc_state.mode, tcc_state.preheating);
+          ESP_LOGD(TAG, "Power: %d, Mode: %02X, Fan: %02X, Vent: %02X, Target Temp: %.1f",
+                   tcc_state.power, tcc_state.mode, tcc_state.fan, tcc_state.vent, tcc_state.target_temp);
+   
 
           sync_from_received_state();
 
@@ -463,8 +466,11 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
                 TEMPERATURE_CONVERSION_OFFSET;
           }
 
-          tcc_state.preheating = (frame->data[4] & 0b10) >> 1;
-          ESP_LOGD(TAG, "Mode: %02X, Preheating: %d", tcc_state.mode, tcc_state.preheating);
+          tcc_state.preheating  = (frame->data[STATUS_DATA_FLAGS_BYTE] & 0b00000010) >> 1;
+          tcc_state.filter_alert = (frame->data[STATUS_DATA_FLAGS_BYTE] & 0b10000000) >> 7;
+          ESP_LOGD(TAG, "Power: %d, Mode: %02X, Fan: %02X, Vent: %02X, Target Temp: %.1f, Room Temp: %.1f, Preheating: %d, Filter Alert: %d",
+                   tcc_state.power, tcc_state.mode, tcc_state.fan, tcc_state.vent, tcc_state.target_temp,
+                   tcc_state.room_temp, tcc_state.preheating, tcc_state.filter_alert);
 
           sync_from_received_state();
 
@@ -474,30 +480,28 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
           break;
       }
     }else {
-      
-
-      if (frame->source == TOSHIBA_REMOTE) {
-
-        // command
-        log_data_frame("REMOTE", frame);
-        if (frame->opcode1 == OPCODE_TEMPERATURE) {
-        // current temperature is reported by the remote
-        // reset last temp log time and last sent temp to prevent clashing with bme280      
-          last_temp_log_time_ = millis();
-          last_sent_temp_ = static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
-    //      if (frame->data[3] > 1) {
-    //        tcc_state.room_temp =
-    //            static_cast<float>(frame->data[3]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
-    //        sync_from_received_state();
-    //      }
-        } 
+    if (frame->source == TOSHIBA_REMOTE) {
+        ESP_LOGD(TAG, "Received data from remote:");
+  
+      if (frame->opcode1 == OPCODE_TEMPERATURE) {
+        // Match the 0x55/0x81 remote temp structure from ac_protocol
+        if (frame->data_length >= 8 && frame->data[2] == 0x55 && frame->data[5] == 0x81) {
+          float rmt = static_cast<float>(frame->data[7]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
+          if (rmt > 1) {  // same defensive check you use elsewhere
+            tcc_state.room_temp = rmt;
+            log_data_frame("Remote temperature", frame);
+            sync_from_received_state();            
+          }
+        }
       }else {
-        // unknown source
-        log_data_frame("UNKNOWN SOURCE", frame);
+      // unknown remote message
+      log_raw_data("Unknown remote data: ", frame);
       }
-    
     }
-
+    else {
+      ESP_LOGD(TAG, "Received data from unknown source: %02X", frame->source);
+      log_data_frame("Unknown source", frame);
+    }
 }
 
 bool ToshibaAbClimate::receive_data(const std::vector<uint8_t> data) {

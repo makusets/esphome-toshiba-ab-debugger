@@ -37,6 +37,7 @@ const uint8_t STATUS_DATA_MODEPOWER_BYTE = 2;
 const uint8_t STATUS_DATA_POWER_MASK = 0b00000001;
 const uint8_t STATUS_DATA_MODE_MASK = 0b11100000;
 const uint8_t STATUS_DATA_MODE_SHIFT_BITS = 5;
+const uint8_t STATUS_DATA_FLAGS_BYTE = 4;
 // const uint8_t STATUS_DATA_COOLING_MASK = 0b00001000; // e.g. 48 in
 // 01:52:11:04:80:86:48:01:09 const uint8_t STATUS_DATA_COOLING_SHIFT_BITS = 3;
 // const uint8_t STATUS_DATA_HEATING_MASK = 0b00000001; // e.g. 81 in
@@ -228,6 +229,8 @@ struct TccState {
   uint8_t cooling;
   uint8_t heating;
   uint8_t preheating;
+  bool filter_alert = false;
+
 
   TccState(){};
 
@@ -241,6 +244,7 @@ struct TccState {
     cooling = src->cooling;
     heating = src->heating;
     preheating = src->preheating;
+    filter_alert = src->filter_alert;
   };
 };
 
