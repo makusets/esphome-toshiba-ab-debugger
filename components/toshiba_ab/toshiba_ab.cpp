@@ -485,11 +485,12 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
   
       if (frame->opcode1 == OPCODE_TEMPERATURE) {
         // Match the 0x55/0x81 remote temp structure from ac_protocol
+        log_data_frame("Remote temperature", frame);
         if (frame->data_length >= 8 && frame->data[2] == 0x55 && frame->data[5] == 0x81) {
-          float rmt = static_cast<float>(frame->data[7]) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
+          log_data_frame("Remote temperature", frame);
+          float rmt = (frame->data[7] & TEMPERATURE_DATA_MASK) / TEMPERATURE_CONVERSION_RATIO - TEMPERATURE_CONVERSION_OFFSET;
           if (rmt > 1) {  // same defensive check you use elsewhere
-            tcc_state.room_temp = rmt;
-            log_data_frame("Remote temperature", frame);
+            tcc_state.room_temp = rmt;            
             sync_from_received_state();            
           }
         }
@@ -504,7 +505,7 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
     }
     }
   }
-  
+
 bool ToshibaAbClimate::receive_data(const std::vector<uint8_t> data) {
   auto frame = DataFrame();
 
