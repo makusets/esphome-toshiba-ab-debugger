@@ -336,7 +336,7 @@ void ToshibaAbClimate::setup() {
       this->send_ping();  // just enqueues; loop() will transmit
     }
     });
-  }
+  } // need add send temp also
 }
 
 void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
