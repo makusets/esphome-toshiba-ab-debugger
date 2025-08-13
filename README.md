@@ -43,10 +43,6 @@ climate:
     id: toshiba_ac
     connected:
       name: "Toshiba AC Connected"
-    failed_crcs:
-      name: "Toshiba AC Failed CRCs"
-    vent:
-      name: "Toshiba AC Vent Switch"
     master: 0x01 # Master ID in Toshiba protocol, optional, default is 0x00, for some units needs to be set to 0x01 
 ```
 
