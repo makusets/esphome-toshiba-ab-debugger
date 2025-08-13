@@ -55,13 +55,6 @@ climate:
     id: toshiba_ac
     connected:
       name: "Toshiba AC Connected"
-    failed_crcs:
-      name: "Toshiba AC Failed CRCs"
-    vent:
-      name: "Toshiba AC Vent Switch" 
-    on_data_received:
-      - lambda: |-
-          ESP_LOGD("TU2C", "Data received: %d bytes", x.size());
     master: 0x01  # Master ID in Toshiba protocol, optional, default is 0x00, needs to be set to 0x01 other devices
 
 sensor:
@@ -82,4 +75,5 @@ sensor:
       oversampling: 2x
     address: 0x76
     update_interval: 30s
+
     
