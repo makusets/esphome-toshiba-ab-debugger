@@ -275,6 +275,7 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   void set_autonomous(bool v) { autonomous_ = v; }
   
   void send_ping();
+  void send_read_block(uint8_t opcode2, uint16_t start, uint16_t length);
 
   bool control_vent(bool state);
 
@@ -308,6 +309,7 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   //autonomous mode
   bool autonomous_ = false;
   uint32_t ping_interval_ms_ = 30000;  // default ping interval
+  uint32_t read08_interval_ms = 60000;  // interval to send 40:00:15:06:08:E8:00:01:00:9E:2C, not sure what it does, but it is sent every minute by remote in the logs
 
  private:
   uint32_t loops_without_reads_ = 0;

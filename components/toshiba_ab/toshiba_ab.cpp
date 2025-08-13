@@ -170,6 +170,22 @@ void ToshibaAbClimate::send_ping() { // Sends a PING command to the master unit,
   this->send_command(cmd);
 }
 
+void ToshibaAbClimate::send_read_block(uint8_t opcode2, uint16_t start, uint16_t length) {  //used to read a block of data from the master unit
+  // 40 00 15 06 08 E8 00 01 00 9E 2C Seems to be sent regularly from remote, this function is used to construct it if in autonomous mode
+  DataFrame cmd{};
+
+  // Tail is big-endian: start_hi, start_lo, len_hi, len_lo
+  const uint8_t tail[4] = {
+    static_cast<uint8_t>((start  >> 8) & 0xFF),
+    static_cast<uint8_t>( start        & 0xFF),
+    static_cast<uint8_t>((length >> 8) & 0xFF),
+    static_cast<uint8_t>( length       & 0xFF),
+  };
+
+  write_read_envelope(&cmd, this->master_address_, opcode2, tail, sizeof(tail));
+  this->send_command(cmd);  // enqueue; loop() will transmit when bus is idle
+}
+
 
 uint8_t to_tcc_power(const climate::ClimateMode mode) {
   switch (mode) {
@@ -321,20 +337,13 @@ void ToshibaAbClimate::setup() {
   // Send ping if autonomous mode is enabled using set_interval calls every ping_interval_ms_ (30s))
   if (this->autonomous_) {
   this->set_interval(this->ping_interval_ms_, [this]() {
-    // be nice to the bus: don't spam if we're actively chatting
-    const uint32_t now = millis();
-    const bool queue_empty = this->write_queue_.empty();
-    const bool bus_idle =
-        (now - this->last_received_millis_  > FRAME_SEND_MILLIS_FROM_LAST_RECEIVE) &&
-        (now - this->last_sent_millis_      > FRAME_SEND_MILLIS_FROM_LAST_SEND);
+    this->send_ping();  // just enqueues; loop() will transmit
+    
+    });
+  this->set_interval(this->read08_interval_ms, [this]() { // send 40:00:15:06:08:E8:00:01:00:9E:2C every min as remote does
 
-    // Optional: only ping if we haven't heard the master lately (reduces noise)
-    const bool stale_master =
-        (now - this->last_master_alive_millis_) > (this->ping_interval_ms_ - 5000);
-
-    if (queue_empty && bus_idle && stale_master) {
-      this->send_ping();  // just enqueues; loop() will transmit
-    }
+    this->send_read_block(0xE8, 0x0001, 0x009E);  // enqueues; loop() will transmit
+    
     });
   } // need add send temp also
 }
@@ -544,13 +553,23 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
         sync_from_received_state();
       }
 
-    // Remote PING request: 40 00 15 07 08 0C 81 00 00 48 00 ..
+    // Remote PING sent every 30s: 40 00 15 07 08 0C 81 00 00 48 00 ..
     } else if (frame->opcode1 == OPCODE_ERROR_HISTORY &&      // 0x15 envelope
               frame->data_length >= 3 &&
               frame->data[0] == COMMAND_MODE_READ &&         // 0x08
               frame->data[1] == OPCODE2_PING_PONG &&         // 0x0C
               frame->data[2] == OPCODE2_READ_STATUS) {       // 0x81
       log_data_frame("Remote PING", frame);
+    
+    // Remote 40:00:15:06:08:E8:00:01:00:9E:2C that is sent every minute, not sure what it does
+    }  else if (frame->opcode1 == OPCODE_ERROR_HISTORY &&      // 0x15 envelope
+              frame->data_length >= 6 &&
+              frame->data[0] == COMMAND_MODE_READ &&         // 0x08
+              frame->data[1] == 0xE8 &&
+              frame->data[3] == 0x01 &&                 
+              frame->data[5] == 0x9E) {                       
+              
+      log_data_frame("Remote E8 Read", frame);
 
     } else {
       // unknown remote message
