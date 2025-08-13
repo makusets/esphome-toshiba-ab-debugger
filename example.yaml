@@ -1,3 +1,6 @@
+#######################################################################################################################################
+#This is an example of the ESPHome yaml file needed to work with Home Assistant. Make sure you use your own network and HA credentials.
+########################################################################################################################################
 esphome:
   name: toshiba-ac
   friendly_name: toshiba_AC
@@ -77,3 +80,4 @@ sensor:
     update_interval: 30s
 
     
+
