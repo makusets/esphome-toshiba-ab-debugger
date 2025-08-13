@@ -230,27 +230,33 @@ uint8_t to_tcc_fan(const climate::ClimateFanMode fan) {
   }
 }
 
-climate::ClimateAction to_climate_action(const struct TccState *state) {
-  if (state->power == 0)
-    return climate::CLIMATE_ACTION_OFF;
+climate::ClimateAction to_climate_action(const TccState* s) {
+  if (!s || s->power == 0) return climate::CLIMATE_ACTION_OFF;
 
-  switch (state->mode) {
+  switch (s->mode) {
     case MODE_HEAT:
-    case MODE_AUTO:
+      // Always report heating when mode is HEAT
+      return climate::CLIMATE_ACTION_HEATING;
+
     case MODE_COOL:
-      if (state->cooling) {
-        return climate::CLIMATE_ACTION_COOLING;
-      } else if (state->heating) {
-        return climate::CLIMATE_ACTION_HEATING;
-      }
+      // Always report cooling when mode is COOL
+      return climate::CLIMATE_ACTION_COOLING;
+
+    case MODE_AUTO:
+      // Fall back to flags if available; otherwise idle
+      if (s->cooling) return climate::CLIMATE_ACTION_COOLING;
+      if (s->heating) return climate::CLIMATE_ACTION_HEATING;
       return climate::CLIMATE_ACTION_IDLE;
+
     case MODE_FAN_ONLY:
       return climate::CLIMATE_ACTION_FAN;
+
     case MODE_DRY:
       return climate::CLIMATE_ACTION_DRYING;
-  }
 
-  return climate::CLIMATE_ACTION_IDLE;
+    default:
+      return climate::CLIMATE_ACTION_IDLE;
+  }
 }
 
 climate::ClimateMode to_climate_mode(const struct TccState *state) {
