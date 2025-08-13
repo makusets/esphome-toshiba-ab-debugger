@@ -31,6 +31,7 @@ This is the schematic of the board.
 
 This is how I installed it
 
-<img src="Final.jpg" width="300">
+<img src="Final.jpg" width="300">      <img src="Final2.jpg" width="300">
+
 
 
