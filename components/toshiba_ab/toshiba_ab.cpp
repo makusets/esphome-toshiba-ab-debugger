@@ -69,6 +69,13 @@ uint8_t get_fan_bit_mask_for_mode(uint8_t mode) {
   return 0;
 }
 
+bool ToshibaAbClimate::is_own_tx_echo_(const DataFrame *f) const { // used to filter out echo from our last command sent
+  if (!this->last_unconfirmed_command_.has_value() || f == nullptr) return false;
+  const auto &tx = this->last_unconfirmed_command_.value();  // last frame we wrote
+  if (f->size() != tx.size()) return false;
+  return std::memcmp(f->raw, tx.raw, f->size()) == 0;
+}
+
 void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
   std::string res;
   char buf[5];
@@ -787,11 +794,15 @@ bool ToshibaAbClimate::receive_data_frame(const struct DataFrame *frame) {
 
     return false;
   }
+  // >>> Drop our own TX echo frames (remote-labeled, identical bytes)
+  if (frame->source == TOSHIBA_REMOTE && this->is_own_tx_echo_(frame)) {
+    ESP_LOGV(TAG, "Ignoring TX echo of our own frame");
+    return true;  // swallow quietly
+  }
 
+  // still notify any listeners of real frames
   this->set_data_received_callback_.call(frame);
-
   process_received_data(frame);
-
   return true;
 }
 
