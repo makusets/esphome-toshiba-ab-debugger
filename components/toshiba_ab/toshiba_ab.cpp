@@ -69,6 +69,36 @@ uint8_t get_fan_bit_mask_for_mode(uint8_t mode) {
   return 0;
 }
 
+void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
+  std::string res;
+  char buf[5];
+  size_t len = length > 0 ? length : frame->data_length;
+  for (size_t i = 0; i < len; i++) {
+    if (i > 0) {
+      res += ':';
+    }
+    sprintf(buf, "%02X", frame->data[i]);
+    res += buf;
+  }
+  ESP_LOGD(TAG, "%s: %02X:%02X:\x1B[32m%02X\033[0m:%02X:\033[2;100;37m%s\033[0m:%02X", msg.c_str(), frame->source,
+           frame->dest, frame->opcode1, frame->data_length, res.c_str(), frame->crc());
+}
+
+void log_raw_data(const std::string prefix, const uint8_t raw[], size_t size) {
+  std::string res;
+  char buf[size];
+  for (size_t i = 0; i < size; i++) {
+    if (i > 0) {
+      res += ':';
+    }
+    sprintf(buf, "%02X", raw[i]);
+    res += buf;
+  }
+  ESP_LOGV(TAG, "%s%s", prefix.c_str(), res.c_str());
+}
+
+
+
 void write_set_parameter(struct DataFrame *command, uint8_t master_address, uint8_t opcode2, uint8_t payload[], size_t payload_size) {
   command->source = TOSHIBA_REMOTE;
   command->dest = master_address;
@@ -427,33 +457,7 @@ void ToshibaAbClimate::setup() {
   });
 }
 
-void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
-  std::string res;
-  char buf[5];
-  size_t len = length > 0 ? length : frame->data_length;
-  for (size_t i = 0; i < len; i++) {
-    if (i > 0) {
-      res += ':';
-    }
-    sprintf(buf, "%02X", frame->data[i]);
-    res += buf;
-  }
-  ESP_LOGD(TAG, "%s: %02X:%02X:\x1B[32m%02X\033[0m:%02X:\033[2;100;37m%s\033[0m:%02X", msg.c_str(), frame->source,
-           frame->dest, frame->opcode1, frame->data_length, res.c_str(), frame->crc());
-}
 
-void log_raw_data(const std::string prefix, const uint8_t raw[], size_t size) {
-  std::string res;
-  char buf[size];
-  for (size_t i = 0; i < size; i++) {
-    if (i > 0) {
-      res += ':';
-    }
-    sprintf(buf, "%02X", raw[i]);
-    res += buf;
-  }
-  ESP_LOGV(TAG, "%s%s", prefix.c_str(), res.c_str());
-}
 
 void ToshibaAbClimate::sync_from_received_state() {
   uint8_t changes = 0;
