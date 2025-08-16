@@ -614,7 +614,7 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
         case OPCODE_SENSOR_VALUE:
             // sensor value received from master
           this->process_sensor_value_(frame);
-          break
+          break;
 
         default:
           log_data_frame("MASTER", frame);
