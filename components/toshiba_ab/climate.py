@@ -132,7 +132,7 @@ async def to_code(config):
         cg.add(var.set_autonomous(config[CONF_AUTONOMOUS]))
     
     for item in config.get(CONF_SENSORS, []):
-        sens = yield sensor.new_sensor(item["sensor"])  # creates the Sensor with name/units/etc.
+        sens = await sensor.new_sensor(item["sensor"])  # creates the Sensor with name/units/etc.
         addr = item[CONF_ADDRESS]
         scale = item[CONF_SCALE]
         interval_ms = item[CONF_INTERVAL]
