@@ -231,45 +231,46 @@ void ToshibaAbClimate::add_polled_sensor(uint8_t id, float scale, uint32_t inter
   }
 }
 
-void ToshibaAbClimate::send_sensor_query(uint8_t sensor_id) {
-  DataFrame cmd{};
-  cmd.source      = TOSHIBA_REMOTE;           // 0x40
-  cmd.dest        = this->master_address_;    // usually 0x00
-  cmd.opcode1     = OPCODE_SENSOR_QUERY;      // 0x17
-  cmd.data_length = 8;
-
-  // Payload (common pattern observed in this family):
-  // 08 80 EF 00 2C 08 00 <id>
-  cmd.data[0] = 0x08;   // READ
-  cmd.data[1] = 0x80;
-  cmd.data[2] = 0xEF;
-  cmd.data[3] = 0x00;
-  cmd.data[4] = 0x2C;   // sensor/value table marker
-  cmd.data[5] = 0x08;
-  cmd.data[6] = 0x00;
-  cmd.data[7] = sensor_id;
-  
-  cmd.data[cmd.data_length] = cmd.calculate_crc();
-  this->last_sensor_query_id_ = sensor_id; // <-- for short replies
-  this->sensor_query_outstanding_ = true;
-  this->last_sensor_query_ms_     = millis();  // timestamp for timeout handling
-
-
-  this->send_command(cmd);  // enqueue; loop() will transmit when idle
-}
-
 void ToshibaAbClimate::process_sensor_value_(const DataFrame *frame) {
-  if (frame == nullptr) return;
+  if (frame == nullptr) {
+    // Always release the guard even if frame is null
+    this->sensor_query_outstanding_ = false;
+    this->last_sensor_query_id_     = 0xFF;
+    return;
+  }
+
+  const uint8_t prev_id = this->last_sensor_query_id_;  // remember for logging
 
   // Only accept replies from the indoor/master unit
   if (frame->source != this->master_address_) {
-    ESP_LOGV(TAG, "0x1A from 0x%02X ignored (master=0x%02X)", frame->source, this->master_address_);
+    ESP_LOGW(TAG, "0x1A from 0x%02X ignored (expected master=0x%02X), last_id=0x%02X",
+             frame->source, this->master_address_, prev_id);
+    this->sensor_query_outstanding_ = false;
+    this->last_sensor_query_id_     = 0xFF;
     return;
   }
 
   // All observed 0x1A replies start with: 80 EF ...
   if (frame->data_length < 5 || frame->data[0] != 0x80 || frame->data[1] != 0xEF) {
-    log_raw_data("SENSOR VALUE (0x1A) unrecognized", frame->raw, frame->size());
+    ESP_LOGW(TAG, "0x1A unrecognized header (len=%u), last_id=0x%02X",
+             static_cast<unsigned>(frame->data_length), prev_id);
+    log_raw_data("0x1A unrecognized (bad header)", frame->raw, frame->size());
+    this->sensor_query_outstanding_ = false;
+    this->last_sensor_query_id_     = 0xFF;
+    return;
+  }
+
+  // -------------------------
+  // A2 tag (undefined / no value):
+  // payload = 80 EF 80 00 A2                     (len == 5)
+  // -------------------------
+  if (frame->data_length == 5 &&
+      frame->data[2] == 0x80 && frame->data[3] == 0x00 && frame->data[4] == 0xA2) {
+
+    ESP_LOGW(TAG, "0x1A: sensor id=0x%02X returned A2 (undefined/not supported).", prev_id);
+    // Treat as a completed (but empty) reply so the next poll can proceed
+    this->sensor_query_outstanding_ = false;
+    this->last_sensor_query_id_     = 0xFF;
     return;
   }
 
@@ -282,19 +283,17 @@ void ToshibaAbClimate::process_sensor_value_(const DataFrame *frame) {
 
     const uint16_t raw = (static_cast<uint16_t>(frame->data[5]) << 8) | frame->data[6];
 
-    if (this->last_sensor_query_id_ != 0xFF) {
-      const uint8_t id = this->last_sensor_query_id_;
-
+    if (prev_id != 0xFF) {
       for (auto &ps : this->polled_sensors_) {
-        if (ps.id == id && ps.sensor != nullptr) {
+        if (ps.id == prev_id && ps.sensor != nullptr) {
           const float value = static_cast<float>(raw) * ps.scale;
           ps.sensor->publish_state(value);
-          ESP_LOGD(TAG, "0x1A short: id=0x%02X raw=0x%04X -> %.3f", id, raw, value);
+          ESP_LOGD(TAG, "0x1A short: id=0x%02X raw=0x%04X -> %.3f", prev_id, raw, value);
           break;
         }
       }
     } else {
-      ESP_LOGD(TAG, "0x1A short with no last id; ignoring");
+      ESP_LOGW(TAG, "0x1A short with no last id; ignoring value raw=0x%04X", raw);
     }
 
     // We got a reply—release the outstanding guard
@@ -323,30 +322,19 @@ void ToshibaAbClimate::process_sensor_value_(const DataFrame *frame) {
       }
     }
 
-    // Clear outstanding if this matches (or just clear—only one query at a time anyway)
-    if (this->sensor_query_outstanding_) {
-      this->sensor_query_outstanding_ = false;
-      this->last_sensor_query_id_     = 0xFF;
-    }
-    return;
-  }
-
-  // -------------------------
-  // A2 tag (undefined / no value):
-  // payload = 80 EF 80 00 A2                     (len == 5)
-  // -------------------------
-  if (frame->data_length == 5 &&
-      frame->data[2] == 0x80 && frame->data[3] == 0x00 && frame->data[4] == 0xA2) {
-
-    ESP_LOGD(TAG, "0x1A: tag 0xA2 (undefined), ignoring");
-    // Treat as a completed (but empty) reply so the next poll can proceed
+    // Clear outstanding (only one query at a time anyway)
     this->sensor_query_outstanding_ = false;
     this->last_sensor_query_id_     = 0xFF;
     return;
   }
 
+  // -------------------------
   // Fallback for any new/unknown variant
-  log_raw_data("SENSOR VALUE (0x1A) unrecognized", frame->raw, frame->size());
+  // -------------------------
+  ESP_LOGW(TAG, "0x1A unrecognized (header ok, no pattern match), last_id=0x%02X", prev_id);
+  log_raw_data("0x1A unrecognized (no pattern)", frame->raw, frame->size());
+  this->sensor_query_outstanding_ = false;
+  this->last_sensor_query_id_     = 0xFF;
 }
 
 
