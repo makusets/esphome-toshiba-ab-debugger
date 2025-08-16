@@ -250,38 +250,58 @@ void ToshibaAbClimate::send_sensor_query(uint8_t sensor_id) {
   cmd.data[7] = sensor_id;
   
   cmd.data[cmd.data_length] = cmd.calculate_crc();
-
+  this->last_sensor_query_id_ = sensor_id; // <-- for short replies
   this->send_command(cmd);  // enqueue; loop() will transmit when idle
 }
 
 void ToshibaAbClimate::process_sensor_value_(const DataFrame *frame) {
-  // Expect replies from master (indoor unit)
   if (frame->source != this->master_address_) return;
 
-  // Expected layout (payload after 4-byte header):
-  // 80 EF 00 2C 08 00 <id> <val_hi> <val_lo> ...
-  if (frame->data_length >= 9 &&
-      frame->data[0] == 0x80 &&
-      frame->data[1] == 0xEF &&
-      frame->data[2] == 0x00 &&
-      frame->data[3] == 0x2C) {
+  // Common prefix for 0x1A replies
+  if (frame->data_length >= 5 && frame->data[0] == 0x80 && frame->data[1] == 0xEF) {
 
-    const uint8_t id = frame->data[6];
-    const uint16_t raw = (uint16_t(frame->data[7]) << 8) | frame->data[8];
+    // Short: 80 EF 80 00 2C  <hi> <lo>
+    if (frame->data_length == 7 &&
+        frame->data[2] == 0x80 && frame->data[3] == 0x00 && frame->data[4] == 0x2C) {
 
-    // Find matching polled sensor
-    for (auto &ps : this->polled_sensors_) {
-      if (ps.id == id && ps.sensor != nullptr) {
-        const float value = static_cast<float>(raw) * ps.scale;
-        ps.sensor->publish_state(value);
-        ESP_LOGD(TAG, "Sensor 0x%02X -> raw=0x%04X, scaled=%.3f", id, raw, value);
-        break;
+      const uint16_t raw = (uint16_t(frame->data[5]) << 8) | frame->data[6];
+      const uint8_t id = this->last_sensor_query_id_;  // reply has no ID → use last 0x17
+      for (auto &ps : this->polled_sensors_) {
+        if (ps.id == id && ps.sensor) {
+          ps.sensor->publish_state(static_cast<float>(raw) * ps.scale);
+          ESP_LOGD(TAG, "0x1A short: id=0x%02X raw=0x%04X", id, raw);
+          break;
+        }
       }
+      return;
     }
-  } else {
-    // Unknown 0x1A layout: log for analysis
-    log_data_frame("SENSOR VALUE (0x1A) unrecognized", frame);
+
+    // Long: 80 EF 00 2C 08 00  <id>  <hi> <lo>
+    if (frame->data_length >= 9 &&
+        frame->data[2] == 0x00 && frame->data[3] == 0x2C &&
+        frame->data[4] == 0x08 && frame->data[5] == 0x00) {
+
+      const uint8_t  id  = frame->data[6];
+      const uint16_t raw = (uint16_t(frame->data[7]) << 8) | frame->data[8];
+      for (auto &ps : this->polled_sensors_) {
+        if (ps.id == id && ps.sensor) {
+          ps.sensor->publish_state(static_cast<float>(raw) * ps.scale);
+          ESP_LOGD(TAG, "0x1A long:  id=0x%02X raw=0x%04X", id, raw);
+          break;
+        }
+      }
+      return;
+    }
+
+    // A2: special/undefined → ignore
+    if (frame->data[frame->data_length - 1] == 0xA2 || frame->data[4] == 0xA2) {
+      ESP_LOGD(TAG, "0x1A: tag 0xA2 (undefined), ignoring");
+      return;
+    }
   }
+
+  // Fallback logging if we see a new shape
+  log_raw_data("SENSOR VALUE (0x1A) unrecognized", frame->raw, frame->size());
 }
 
 
