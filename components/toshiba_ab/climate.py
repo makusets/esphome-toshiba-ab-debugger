@@ -32,6 +32,20 @@ CONF_MASTER = "master"
 
 CONF_AUTONOMOUS = "autonomous"
 
+#AC Sensors addresses
+
+CONF_SENSORS = "sensors"
+CONF_ADDRESS = "address"
+CONF_SCALE = "scale"
+CONF_INTERVAL = "interval"
+
+SENSOR_ITEM_SCHEMA = cv.Schema({
+    cv.Required(CONF_ADDRESS): cv.uint8_t,                           # sensor ID to query via 0x17
+    cv.Optional(CONF_SCALE,   default=1.0): cv.float_,               # scale factor
+    cv.Optional(CONF_INTERVAL, default="5min"): cv.positive_time_period_milliseconds,
+    cv.Required("sensor"): sensor.sensor_schema(),                   # standard sensor schema (name, unit_of_measurement, etc.)
+})
+
 ToshibaAbClimate =  toshiba_ab_ns.class_(
     "ToshibaAbClimate", climate.Climate, uart.UARTDevice, cg.Component
 )
@@ -74,6 +88,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             }
         ),
         cv.Optional(CONF_AUTONOMOUS, default=False): cv.boolean,
+        cv.Optional(CONF_SENSORS, default=[]): cv.ensure_list(SENSOR_ITEM_SCHEMA),
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 
@@ -115,3 +130,10 @@ async def to_code(config):
             )
     if CONF_AUTONOMOUS in config:
         cg.add(var.set_autonomous(config[CONF_AUTONOMOUS]))
+    
+    for item in config.get(CONF_SENSORS, []):
+        sens = yield sensor.new_sensor(item["sensor"])  # creates the Sensor with name/units/etc.
+        addr = item[CONF_ADDRESS]
+        scale = item[CONF_SCALE]
+        interval_ms = item[CONF_INTERVAL]
+        cg.add(var.add_polled_sensor(addr, scale, cg.uint32(interval_ms), sens))

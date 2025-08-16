@@ -145,7 +145,7 @@ void write_set_parameter_room_temp(struct DataFrame *command, uint8_t master_add
 void write_read_envelope(DataFrame *cmd, uint8_t master_address,
                          uint8_t opcode2, const uint8_t payload[], size_t payload_size) {
 // Writes a read envelope command
-// This is used to read data from the master unit, such as status or parameters
+// This is used to read some data from the master unit, but not sensors
 // And to send remote PING/KEEP_ALIVE commands
   cmd->source      = TOSHIBA_REMOTE;
   cmd->dest        = master_address;
@@ -184,6 +184,74 @@ void ToshibaAbClimate::send_read_block(uint8_t opcode2, uint16_t start, uint16_t
 
   write_read_envelope(&cmd, this->master_address_, opcode2, tail, sizeof(tail));
   this->send_command(cmd);  // enqueue; loop() will transmit when bus is idle
+}
+
+void ToshibaAbClimate::add_polled_sensor(uint8_t id, float scale, uint32_t interval_ms, sensor::Sensor *sensor) {
+  PolledSensor ps{ id, scale, interval_ms, sensor };
+  this->polled_sensors_.push_back(ps);
+
+  // Schedule this sensor’s periodic query
+  if (interval_ms > 0) {
+    this->set_interval(interval_ms, [this, id]() {
+      // Light back-pressure: avoid growing queue if it’s already busy
+      if (this->write_queue_.size() < 3) {
+        this->send_sensor_query(id);  // enqueue; loop() will handle bus timing
+      }
+    });
+  }
+}
+
+void ToshibaAbClimate::send_sensor_query(uint8_t sensor_id) {
+  DataFrame cmd{};
+  cmd.source      = TOSHIBA_REMOTE;           // 0x40
+  cmd.dest        = this->master_address_;    // usually 0x00
+  cmd.opcode1     = OPCODE_SENSOR_QUERY;      // 0x17
+  cmd.data_length = 8;
+
+  // Payload (common pattern observed in this family):
+  // 08 80 EF 00 2C 08 00 <id>
+  cmd.data[0] = 0x08;   // READ
+  cmd.data[1] = 0x80;
+  cmd.data[2] = 0xEF;
+  cmd.data[3] = 0x00;
+  cmd.data[4] = 0x2C;   // sensor/value table marker
+  cmd.data[5] = 0x08;
+  cmd.data[6] = 0x00;
+  cmd.data[7] = sensor_id;
+  
+  cmd.data[cmd.data_length] = cmd.calculate_crc();
+
+  this->send_command(cmd);  // enqueue; loop() will transmit when idle
+}
+
+void ToshibaAbClimate::process_sensor_value_(const DataFrame *frame) {
+  // Expect replies from master (indoor unit)
+  if (frame->source != this->master_address_) return;
+
+  // Expected layout (payload after 4-byte header):
+  // 80 EF 00 2C 08 00 <id> <val_hi> <val_lo> ...
+  if (frame->data_length >= 9 &&
+      frame->data[0] == 0x80 &&
+      frame->data[1] == 0xEF &&
+      frame->data[2] == 0x00 &&
+      frame->data[3] == 0x2C) {
+
+    const uint8_t id = frame->data[6];
+    const uint16_t raw = (uint16_t(frame->data[7]) << 8) | frame->data[8];
+
+    // Find matching polled sensor
+    for (auto &ps : this->polled_sensors_) {
+      if (ps.id == id && ps.sensor != nullptr) {
+        const float value = static_cast<float>(raw) * ps.scale;
+        ps.sensor->publish_state(value);
+        ESP_LOGD(TAG, "Sensor 0x%02X -> raw=0x%04X, scaled=%.3f", id, raw, value);
+        break;
+      }
+    }
+  } else {
+    // Unknown 0x1A layout: log for analysis
+    log_data_frame("SENSOR VALUE (0x1A) unrecognized", frame);
+  }
 }
 
 
@@ -352,6 +420,11 @@ void ToshibaAbClimate::setup() {
     
     });
   } // need add send temp also
+  this->set_interval(30000, [this]() { //queries the current sensor every 30sI want
+    if (this->write_queue_.size() < 3) {  // small back-pressure
+      this->send_sensor_query(SENSOR_ID_CURRENT);
+    }
+  });
 }
 
 void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t length = 0) {
@@ -538,6 +611,11 @@ void ToshibaAbClimate::process_received_data(const struct DataFrame *frame) {
           sync_from_received_state();
 
           break;
+        case OPCODE_SENSOR_VALUE:
+            // sensor value received from master
+          this->process_sensor_value_(frame);
+          break
+
         default:
           log_data_frame("MASTER", frame);
           break;

@@ -107,6 +107,21 @@ const uint8_t DATA_FRAME_DATA_LENGTH = 3;
 const uint8_t DATA_FRAME_READWRITE_FLAGS = 5;
 const uint8_t DATA_FRAME_OPCODE2 = 2;
 
+// Sensor addresses for central unit
+constexpr uint8_t SENSOR_ID_CURRENT = 0x6A;  // Electrical current x10
+constexpr float CURRENT_SCALE = 0.1f;        // 123 -> 12.3 A
+const uint8_t SENSOR_ADDRESS_OUT_TEMP = 0x02;   // Outdoor temperature sensor
+const uint8_t SENSOR_ADDRESS_IN_TEMP = 0x03;    // Indoor temperature sensor
+
+// adds all the sensors configured in yaml to the component
+struct PolledSensor {
+  uint8_t id;                     // sensor ID (address) for 0x17 query
+  float scale;                    // scale factor to apply to value
+  uint32_t interval_ms;           // polling interval
+  sensor::Sensor *sensor;         // target sensor to publish into
+};
+
+
 struct DataFrame {
   union {
     uint8_t raw[DATA_FRAME_MAX_SIZE];
@@ -276,6 +291,11 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   
   void send_ping();
   void send_read_block(uint8_t opcode2, uint16_t start, uint16_t length);
+  // AC sensors polling functions
+  void set_current_sensor(sensor::Sensor *s) { current_sensor_ = s; } // Sensor for current, x10 A
+  void send_sensor_query(uint8_t sensor_id); // Send sensor query for a specific sensor ID
+  void add_polled_sensor(uint8_t id, float scale, uint32_t interval_ms, sensor::Sensor *sensor);
+
 
   bool control_vent(bool state);
 
@@ -296,6 +316,7 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   size_t send_new_state(const struct TccState *new_state);
   void sync_from_received_state();
 
+
   std::vector<DataFrame> create_commands(const struct TccState *new_state);
 
   // sensors
@@ -303,6 +324,11 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   switch_::Switch *vent_switch_{nullptr};
   sensor::Sensor *failed_crcs_sensor_{nullptr};
 
+  sensor::Sensor *current_sensor_{nullptr}; // Sensor for current, x10 A
+
+  // rx handler for 0x1A (sensor) replies (called from process_received_data)
+  void process_sensor_value_(const DataFrame *frame);
+  std::vector<PolledSensor> polled_sensors_;
   // callbacks
   CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
 
