@@ -231,6 +231,34 @@ void ToshibaAbClimate::add_polled_sensor(uint8_t id, float scale, uint32_t inter
   }
 }
 
+void ToshibaAbClimate::send_sensor_query(uint8_t sensor_id) {
+  DataFrame cmd{};
+  cmd.source      = TOSHIBA_REMOTE;           // 0x40
+  cmd.dest        = this->master_address_;    // usually 0x00
+  cmd.opcode1     = OPCODE_SENSOR_QUERY;      // 0x17
+  cmd.data_length = 8;
+
+  // Payload (common pattern observed in this family):
+  // 08 80 EF 00 2C 08 00 <id>
+  cmd.data[0] = 0x08;   // READ
+  cmd.data[1] = 0x80;
+  cmd.data[2] = 0xEF;
+  cmd.data[3] = 0x00;
+  cmd.data[4] = 0x2C;   // sensor/value table marker
+  cmd.data[5] = 0x08;
+  cmd.data[6] = 0x00;
+  cmd.data[7] = sensor_id;
+  
+  cmd.data[cmd.data_length] = cmd.calculate_crc();
+  this->last_sensor_query_id_ = sensor_id; // <-- for short replies
+  this->sensor_query_outstanding_ = true;
+  this->last_sensor_query_ms_     = millis();  // timestamp for timeout handling
+
+
+  this->send_command(cmd);  // enqueue; loop() will transmit when idle
+}
+
+
 void ToshibaAbClimate::process_sensor_value_(const DataFrame *frame) {
   if (frame == nullptr) {
     // Always release the guard even if frame is null
