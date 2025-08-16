@@ -331,6 +331,12 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   std::vector<PolledSensor> polled_sensors_;
   // callbacks
   CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
+  // Tracks the last sensor ID we queried via 0x17 (for short 0x1A replies)
+  uint8_t last_sensor_query_id_{0xFF};     // 0xFF = invalid / none
+  bool    sensor_query_outstanding_{false}; // true after send, cleared on reply
+  uint32_t last_sensor_query_ms_{0};
+  uint32_t sensor_query_timeout_ms_{1000};  // 3s default; adjust if needed
+  uint32_t sensor_query_timeouts_{0};       // (optional) stats
 
   //autonomous mode
   bool autonomous_ = false;

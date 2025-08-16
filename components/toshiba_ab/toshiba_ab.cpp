@@ -251,56 +251,101 @@ void ToshibaAbClimate::send_sensor_query(uint8_t sensor_id) {
   
   cmd.data[cmd.data_length] = cmd.calculate_crc();
   this->last_sensor_query_id_ = sensor_id; // <-- for short replies
+  this->sensor_query_outstanding_ = true;
+  this->last_sensor_query_ms_     = millis();  // timestamp for timeout handling
+
+
   this->send_command(cmd);  // enqueue; loop() will transmit when idle
 }
 
 void ToshibaAbClimate::process_sensor_value_(const DataFrame *frame) {
-  if (frame->source != this->master_address_) return;
+  if (frame == nullptr) return;
 
-  // Common prefix for 0x1A replies
-  if (frame->data_length >= 5 && frame->data[0] == 0x80 && frame->data[1] == 0xEF) {
-
-    // Short: 80 EF 80 00 2C  <hi> <lo>
-    if (frame->data_length == 7 &&
-        frame->data[2] == 0x80 && frame->data[3] == 0x00 && frame->data[4] == 0x2C) {
-
-      const uint16_t raw = (uint16_t(frame->data[5]) << 8) | frame->data[6];
-      const uint8_t id = this->last_sensor_query_id_;  // reply has no ID → use last 0x17
-      for (auto &ps : this->polled_sensors_) {
-        if (ps.id == id && ps.sensor) {
-          ps.sensor->publish_state(static_cast<float>(raw) * ps.scale);
-          ESP_LOGD(TAG, "0x1A short: id=0x%02X raw=0x%04X", id, raw);
-          break;
-        }
-      }
-      return;
-    }
-
-    // Long: 80 EF 00 2C 08 00  <id>  <hi> <lo>
-    if (frame->data_length >= 9 &&
-        frame->data[2] == 0x00 && frame->data[3] == 0x2C &&
-        frame->data[4] == 0x08 && frame->data[5] == 0x00) {
-
-      const uint8_t  id  = frame->data[6];
-      const uint16_t raw = (uint16_t(frame->data[7]) << 8) | frame->data[8];
-      for (auto &ps : this->polled_sensors_) {
-        if (ps.id == id && ps.sensor) {
-          ps.sensor->publish_state(static_cast<float>(raw) * ps.scale);
-          ESP_LOGD(TAG, "0x1A long:  id=0x%02X raw=0x%04X", id, raw);
-          break;
-        }
-      }
-      return;
-    }
-
-    // A2: special/undefined → ignore
-    if (frame->data[frame->data_length - 1] == 0xA2 || frame->data[4] == 0xA2) {
-      ESP_LOGD(TAG, "0x1A: tag 0xA2 (undefined), ignoring");
-      return;
-    }
+  // Only accept replies from the indoor/master unit
+  if (frame->source != this->master_address_) {
+    ESP_LOGV(TAG, "0x1A from 0x%02X ignored (master=0x%02X)", frame->source, this->master_address_);
+    return;
   }
 
-  // Fallback logging if we see a new shape
+  // All observed 0x1A replies start with: 80 EF ...
+  if (frame->data_length < 5 || frame->data[0] != 0x80 || frame->data[1] != 0xEF) {
+    log_raw_data("SENSOR VALUE (0x1A) unrecognized", frame->raw, frame->size());
+    return;
+  }
+
+  // -------------------------
+  // Short reply (no ID):
+  // payload = 80 EF 80 00 2C  <hi> <lo>         (len == 7)
+  // -------------------------
+  if (frame->data_length == 7 &&
+      frame->data[2] == 0x80 && frame->data[3] == 0x00 && frame->data[4] == 0x2C) {
+
+    const uint16_t raw = (static_cast<uint16_t>(frame->data[5]) << 8) | frame->data[6];
+
+    if (this->last_sensor_query_id_ != 0xFF) {
+      const uint8_t id = this->last_sensor_query_id_;
+
+      for (auto &ps : this->polled_sensors_) {
+        if (ps.id == id && ps.sensor != nullptr) {
+          const float value = static_cast<float>(raw) * ps.scale;
+          ps.sensor->publish_state(value);
+          ESP_LOGD(TAG, "0x1A short: id=0x%02X raw=0x%04X -> %.3f", id, raw, value);
+          break;
+        }
+      }
+    } else {
+      ESP_LOGD(TAG, "0x1A short with no last id; ignoring");
+    }
+
+    // We got a reply—release the outstanding guard
+    this->sensor_query_outstanding_ = false;
+    this->last_sensor_query_id_     = 0xFF;
+    return;
+  }
+
+  // -------------------------
+  // Long reply (with ID):
+  // payload = 80 EF 00 2C 08 00  <id>  <hi> <lo>   (len >= 9)
+  // -------------------------
+  if (frame->data_length >= 9 &&
+      frame->data[2] == 0x00 && frame->data[3] == 0x2C &&
+      frame->data[4] == 0x08 && frame->data[5] == 0x00) {
+
+    const uint8_t  id  = frame->data[6];
+    const uint16_t raw = (static_cast<uint16_t>(frame->data[7]) << 8) | frame->data[8];
+
+    for (auto &ps : this->polled_sensors_) {
+      if (ps.id == id && ps.sensor != nullptr) {
+        const float value = static_cast<float>(raw) * ps.scale;
+        ps.sensor->publish_state(value);
+        ESP_LOGD(TAG, "0x1A long:  id=0x%02X raw=0x%04X -> %.3f", id, raw, value);
+        break;
+      }
+    }
+
+    // Clear outstanding if this matches (or just clear—only one query at a time anyway)
+    if (this->sensor_query_outstanding_) {
+      this->sensor_query_outstanding_ = false;
+      this->last_sensor_query_id_     = 0xFF;
+    }
+    return;
+  }
+
+  // -------------------------
+  // A2 tag (undefined / no value):
+  // payload = 80 EF 80 00 A2                     (len == 5)
+  // -------------------------
+  if (frame->data_length == 5 &&
+      frame->data[2] == 0x80 && frame->data[3] == 0x00 && frame->data[4] == 0xA2) {
+
+    ESP_LOGD(TAG, "0x1A: tag 0xA2 (undefined), ignoring");
+    // Treat as a completed (but empty) reply so the next poll can proceed
+    this->sensor_query_outstanding_ = false;
+    this->last_sensor_query_id_     = 0xFF;
+    return;
+  }
+
+  // Fallback for any new/unknown variant
   log_raw_data("SENSOR VALUE (0x1A) unrecognized", frame->raw, frame->size());
 }
 
@@ -475,6 +520,21 @@ void ToshibaAbClimate::setup() {
       this->send_sensor_query(SENSOR_ID_CURRENT);
     }
   });
+
+  this->set_interval(1000, [this]() {
+//checks if sensor query is still outstanding every second, if there hasn't been a reply after sensor_query_timeout_ms,
+// it clears the outstanding flag so that the next sensor query can be sent
+  if (this->sensor_query_outstanding_) {
+    const uint32_t now = millis();
+    if (now - this->last_sensor_query_ms_ > this->sensor_query_timeout_ms_) {
+      this->sensor_query_outstanding_ = false;
+      this->last_sensor_query_id_     = 0xFF;
+      this->sensor_query_timeouts_++;  // optional stat
+      ESP_LOGW(TAG, "Sensor query timed out; clearing outstanding flag (timeouts=%u)",
+               this->sensor_query_timeouts_);
+    }
+  }
+});
 }
 
 
