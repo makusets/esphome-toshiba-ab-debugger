@@ -219,7 +219,7 @@ struct DataFrameReader {
     if (data_index_ == 0 && byte == 0xFF | data_index_ == 0 && byte == 0xFE) {
       ESP_LOGV("READER", "Ignoring noise");
       return false;
-
+    }
     // Store byte
     frame.raw[data_index_] = byte;
 
