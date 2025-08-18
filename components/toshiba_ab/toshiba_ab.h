@@ -196,42 +196,69 @@ struct DataFrame {
 };
 
 struct DataFrameReader {
+  // Reads a data frame byte by byte, accumulating bytes until a complete frame is received
+  // Returns true when a complete frame is received, false otherwise
+  // The frame is stored in the `frame` member variable
   DataFrame frame;
 
-  bool crc_valid;
-  bool complete;
-  uint8_t data_index_;
+  bool crc_valid{false};
+  bool complete{false};
+  uint8_t  data_index_{0};
+  uint16_t expected_total_{0};  // header(4) + payload(len) + crc(1)
 
   void reset() {
     frame.reset();
-    crc_valid = false;
-    data_index_ = 0;
-    complete = false;
+    crc_valid       = false;
+    complete        = false;
+    data_index_     = 0;
+    expected_total_ = 0;
   }
 
   bool put(uint8_t byte) {
+    // Ignore a common noise byte at start
     if (data_index_ == 0 && byte == 0xFF)
-      return false;  // filter out noise
-
-    frame.raw[data_index_] = byte;
-    // ESP_LOGV("READER", "[%d/%d] = %02X", data_index_, frame.size(), byte);
-    if (data_index_ > DATA_OFFSET_FROM_START && (data_index_ + 1) == frame.size()) {
-      // last byte
-      crc_valid = frame.validate_crc();
-      data_index_ = 0;  // prepare for next frame
-      complete = true;
-      return true;
-    } else {
-      data_index_++;
-      if (data_index_ == DATA_FRAME_MAX_SIZE) {
-        data_index_ = 0;
-        ESP_LOGW("READER", "Went over buffer");
-      }
       return false;
+
+    // Store byte
+    frame.raw[data_index_] = byte;
+
+    // When the length byte arrives (raw[3]), compute the expected total size
+    if (data_index_ == 3) {
+      frame.data_length = frame.raw[3];  // keep DataFrame fields in sync
+      if (!frame.validate_bounds()) {    // early length sanity check
+        ESP_LOGW("READER", "Invalid length 0x%02X; resetting reader", frame.data_length);
+        // Resync
+        reset();
+        return false;
+      }
+      expected_total_ = DATA_OFFSET_FROM_START + frame.data_length + 1;  // 4 + len + crc
     }
+
+    data_index_++;
+
+    // If we know how many bytes we expect, finish only when we have them all
+    if (expected_total_ > 0 && data_index_ >= expected_total_) {
+      // We have the whole frame (header + payload + CRC)
+      crc_valid = frame.validate_crc();
+      complete  = true;
+
+      // Prepare reader for the next frame
+      data_index_     = 0;
+      expected_total_ = 0;
+
+      return true;
+    }
+
+    // Guard against runaway input
+    if (data_index_ == DATA_FRAME_MAX_SIZE) {
+      ESP_LOGW("READER", "Went over buffer; resetting");
+      reset();
+    }
+
+    return false;
   }
 
- private:
+private:
 };
 
 struct TccState {
@@ -303,7 +330,7 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   
   
   // AC sensors polling ************************************
-  
+
   void set_current_sensor(sensor::Sensor *s) { current_sensor_ = s; } // Sensor for current, x10 A
   void send_sensor_query(uint8_t sensor_id); // Send sensor query for a specific sensor ID
   void add_polled_sensor(uint8_t id, float scale, uint32_t interval_ms, sensor::Sensor *sensor);
