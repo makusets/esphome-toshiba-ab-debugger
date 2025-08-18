@@ -216,7 +216,7 @@ struct DataFrameReader {
 
   bool put(uint8_t byte) {
     // Ignore a common noise byte at start
-    if ((data_index_ == 0 && byte == 0xFF) || (data_index_ == 0 && byte == 0xFE) || (data_index_ == 0 && byte == 0xF7)) {
+    if (data_index_ == 0 && (byte == 0xFF || byte == 0xFE || byte == 0xF7))  {
       ESP_LOGV("READER", "Ignoring noise");
       return false;
     }
@@ -438,7 +438,4 @@ class ToshibaAbVentSwitch : public switch_::Switch, public Component {
 
 }  // namespace esphome
 
-// sensors for BME280 configured in yaml and managed by native esphome component
-extern esphome::sensor::Sensor *bme280_temp;
-extern esphome::sensor::Sensor *bme280_pressure;
-extern esphome::sensor::Sensor *bme280_humidity;
+

@@ -552,10 +552,6 @@ void ToshibaAbClimate::setup() {
   }
   ESP_LOGD("toshiba", "Setting up ToshibaClimate...");
 
-  // Link to sensors only if defined
-  bme280_temp = &id(bme280_temp);
-  bme280_pressure = &id(bme280_pressure);
-  bme280_humidity = &id(bme280_humidity);
 
   // Send ping if autonomous mode is enabled using set_interval calls every ping_interval_ms_ (30s))
   if (this->autonomous_) {
@@ -863,21 +859,12 @@ void ToshibaAbClimate::loop() {
     }
   }
 
-  if (bme280_temp != nullptr && !std::isnan(bme280_temp->state)) {
+  if (this->ext_temp_sensor_ && this->ext_temp_sensor_->has_state()) {
     if (millis() - last_temp_log_time_ >= 120000) {
-      ESP_LOGI(TAG, "BME280 Ambient Temp: %.2f °C", bme280_temp->state);
-      if (bme280_temp != nullptr && !std::isnan(bme280_temp->state)) {
-        float current = std::round(bme280_temp->state * 2.0f) / 2.0f;  // round to .5°C
-      
-        if (std::isnan(last_sent_temp_) || std::abs(current - last_sent_temp_) >= 0.5f) {
-        //  ESP_LOGD("toshiba_ab", "Sending ambient temp: %.1f °C", current);
-      
-        //  DataFrame frame{};
-        //  write_set_parameter_room_temp(&frame, this->master_address_, current);
-        //  this->send_command(frame);
-      
-        last_sent_temp_ = current;
-        }
+      ESP_LOGI(TAG, "Ambient Temp: %.2f °C", this->ext_temp_sensor_->state);
+      float current = std::round(this->ext_temp_sensor_->state * 2.0f) / 2.0f;  // round to 0.5°C
+      if (std::isnan(last_sent_temp_) || std::abs(current - last_sent_temp_) >= 0.5f) {
+        last_sent_temp_ = current; 
       }
       last_temp_log_time_ = millis();
     }
