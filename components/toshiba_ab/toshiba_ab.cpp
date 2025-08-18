@@ -91,19 +91,17 @@ void log_data_frame(const std::string msg, const struct DataFrame *frame, size_t
            frame->dest, frame->opcode1, frame->data_length, res.c_str(), frame->crc());
 }
 
-void log_raw_data(const std::string prefix, const uint8_t raw[], size_t size) {
+void log_raw_data(const std::string& prefix, const uint8_t raw[], size_t size) {
   std::string res;
-  char buf[size];
+  res.reserve(size ? (size * 3 - 1) : 0);  // pre-size: "AA:" per byte minus last colon
+  char buf[3];
   for (size_t i = 0; i < size; i++) {
-    if (i > 0) {
-      res += ':';
-    }
-    sprintf(buf, "%02X", raw[i]);
+    if (i > 0) res += ':';
+    std::snprintf(buf, sizeof(buf), "%02X", raw[i]);
     res += buf;
   }
   ESP_LOGV(TAG, "%s%s", prefix.c_str(), res.c_str());
 }
-
 
 
 void write_set_parameter(struct DataFrame *command, uint8_t master_address, uint8_t opcode2, uint8_t payload[], size_t payload_size) {
