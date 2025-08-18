@@ -30,6 +30,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/makusets/esphome-toshiba-ab
+    refresh: 0s  #optional, how often to download fresh files from source, defaults to 1 day, use 0 to force updates 
 
 uart:
   tx_pin: GPIO15
