@@ -198,6 +198,38 @@ void write_read_envelope(DataFrame *cmd, uint8_t master_address,
 }
 
 
+// Sends room temp to AC unit with and interval sensor configured in yaml
+void ToshibaAbClimate::send_remote_temp(float temp_c) {
+  // sanity
+  if (!std::isfinite(temp_c) || temp_c < -40.0f || temp_c > 80.0f) {
+    ESP_LOGW(TAG, "send_remote_temp: invalid temp %.2f°C", temp_c);
+    return;
+  }
+
+  // Encode raw = (C + OFFSET) * RATIO, mask per protocol
+  const uint8_t raw =
+      static_cast<uint8_t>(std::lround((temp_c + TEMPERATURE_CONVERSION_OFFSET) *
+                                       TEMPERATURE_CONVERSION_RATIO)) &
+      TEMPERATURE_DATA_MASK;
+
+  DataFrame cmd{};
+  cmd.source      = TOSHIBA_REMOTE;        // 0x40
+  cmd.dest        = this->master_address_; // usually 0x00
+  cmd.opcode1     = OPCODE_TEMPERATURE;    // 0x55
+  cmd.data_length = 5;                     // payload: 08 81 01 <raw> 00
+
+  cmd.data[0] = 0x08;
+  cmd.data[1] = 0x81;
+  cmd.data[2] = 0x01;   // channel/slot used in observed frames
+  cmd.data[3] = raw;    // encoded temperature
+  cmd.data[4] = 0x00;
+
+  cmd.data[cmd.data_length] = cmd.calculate_crc();
+
+  this->send_command(cmd);  // enqueue; loop() sends when bus is idle
+}
+
+
 
 void ToshibaAbClimate::send_ping() { // Sends a PING command to the master unit, command goes into queue, sent when loop() finds it
   DataFrame cmd{};
@@ -228,6 +260,7 @@ void ToshibaAbClimate::add_polled_sensor(uint8_t id, float scale, uint32_t inter
   this->polled_sensors_.push_back(ps);
 
   // Schedule this sensor’s periodic query
+  // It doens't need to be added to loop it is added here for every sensor configured
   if (interval_ms > 0) {
     this->set_interval(interval_ms, [this, id]() {
       // Light back-pressure: avoid growing queue if it’s already busy
@@ -537,12 +570,20 @@ void ToshibaAbClimate::setup() {
     this->send_read_block(0xE8, 0x0001, 0x009E);  // enqueues; loop() will transmit
     
     });
-  } // need add send temp also
-  this->set_interval(30000, [this]() { //queries the current sensor every 30sI want
-    if (this->write_queue_.size() < 3) {  // small back-pressure
-      this->send_sensor_query(SENSOR_ID_CURRENT);
-    }
-  });
+  } 
+
+  if (this->ext_temp_enabled_ && this->ext_temp_sensor_ && this->ext_temp_interval_ms_ > 0) {
+    this->set_interval(this->ext_temp_interval_ms_, [this]() {
+      float t = NAN;
+      if (this->ext_temp_sensor_->has_state())
+        t = this->ext_temp_sensor_->state;
+
+      if (std::isfinite(t) && t > -40.0f && t < 80.0f) {
+        this->send_remote_temp(t);   // enqueues; loop() controls bus timing
+      } else {
+        ESP_LOGV(TAG, "report_sensor_temp: source has no valid state");
+      }
+    });
 
   this->set_interval(1000, [this]() {
 //checks if sensor query is still outstanding every second, if there hasn't been a reply after sensor_query_timeout_ms,

@@ -287,16 +287,28 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   void set_failed_crcs_sensor(sensor::Sensor *failed_crcs_sensor) { this->failed_crcs_sensor_ = failed_crcs_sensor; }
 
   void send_command(struct DataFrame command);
-  void set_autonomous(bool v) { autonomous_ = v; }
   
+  // Autonomous mode **********************************
+  
+  void set_autonomous(bool v) { autonomous_ = v; }
   void send_ping();
   void send_read_block(uint8_t opcode2, uint16_t start, uint16_t length);
-  // AC sensors polling functions
+  
+  // Reporting external sensor temperature to AC *************************
+
+  void set_ext_temp_source(sensor::Sensor *s) { ext_temp_sensor_ = s; }
+  void set_ext_temp_interval(uint32_t ms) { ext_temp_interval_ms_ = ms; }
+  void set_ext_temp_enabled(bool en) { ext_temp_enabled_ = en; }
+  void send_remote_temp(float temp_c);  // builds & enqueues 0x55 remote-temp frame
+  
+  
+  // AC sensors polling ************************************
+  
   void set_current_sensor(sensor::Sensor *s) { current_sensor_ = s; } // Sensor for current, x10 A
   void send_sensor_query(uint8_t sensor_id); // Send sensor query for a specific sensor ID
   void add_polled_sensor(uint8_t id, float scale, uint32_t interval_ms, sensor::Sensor *sensor);
 
-
+//*************************************
   bool control_vent(bool state);
 
   bool receive_data(const std::vector<uint8_t> data);
@@ -320,7 +332,10 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
 
   std::vector<DataFrame> create_commands(const struct TccState *new_state);
 
-  // sensors
+  // callbacks
+  CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
+
+  // sensors  ******************************************
   binary_sensor::BinarySensor *connected_binary_sensor_{nullptr};
   switch_::Switch *vent_switch_{nullptr};
   sensor::Sensor *failed_crcs_sensor_{nullptr};
@@ -330,8 +345,9 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   // rx handler for 0x1A (sensor) replies (called from process_received_data)
   void process_sensor_value_(const DataFrame *frame);
   std::vector<PolledSensor> polled_sensors_;
-  // callbacks
-  CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
+
+
+
   // Tracks the last sensor ID we queried via 0x17 (for short 0x1A replies)
   uint8_t last_sensor_query_id_{0xFF};     // 0xFF = invalid / none
   bool    sensor_query_outstanding_{false}; // true after send, cleared on reply
@@ -339,7 +355,12 @@ class ToshibaAbClimate : public Component, public uart::UARTDevice, public clima
   uint32_t sensor_query_timeout_ms_{1000};  // 3s default; adjust if needed
   uint32_t sensor_query_timeouts_{0};       // (optional) stats
 
-  //autonomous mode
+  // room temperature sensor reporting to AC  ******************************
+  sensor::Sensor *ext_temp_sensor_{nullptr};
+  uint32_t ext_temp_interval_ms_{300000};  // 5 min default
+  bool ext_temp_enabled_{false};
+
+  //autonomous mode **********************************
   bool autonomous_ = false;
   uint32_t ping_interval_ms_ = 30000;  // default ping interval
   uint32_t read08_interval_ms = 60000;  // interval to send 40:00:15:06:08:E8:00:01:00:9E:2C, not sure what it does, but it is sent every minute by remote in the logs

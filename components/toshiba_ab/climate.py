@@ -5,6 +5,7 @@ from esphome.components import climate, uart, binary_sensor, sensor, switch, tex
 from esphome.const import (
     CONF_ID,
     CONF_NAME,
+    CONF_SENSOR,
     CONF_HARDWARE_UART,
     CONF_BAUD_RATE,
     CONF_UPDATE_INTERVAL,
@@ -58,6 +59,16 @@ ToshibaAbOnDataReceivedTrigger = toshiba_ab_ns.class_(
     "ToshibaAbOnDataReceivedTrigger", automation.Trigger.template()
 )
 
+# Report external temperature (from any ESPHome sensor) to the AC
+CONF_REPORT_SENSOR_TEMP = "report_sensor_temp"
+
+REPORT_SENSOR_TEMP_SCHEMA = cv.Schema({
+    cv.Optional("enabled", default=True): cv.boolean,
+    cv.Required(CONF_SENSOR): cv.use_id(sensor.Sensor),
+    cv.Optional(CONF_INTERVAL, default="5min"): cv.positive_time_period_milliseconds,
+})
+
+
 CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
     {
         cv.Optional(CONF_MASTER, default=0x00): cv.uint8_t,
@@ -89,6 +100,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
         ),
         cv.Optional(CONF_AUTONOMOUS, default=False): cv.boolean,
         cv.Optional(CONF_SENSORS, default=[]): cv.ensure_list(SENSOR_ITEM_SCHEMA),
+        cv.Optional(CONF_REPORT_SENSOR_TEMP): REPORT_SENSOR_TEMP_SCHEMA,
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 
@@ -136,4 +148,11 @@ async def to_code(config):
         addr = item[CONF_ADDRESS]
         scale = item[CONF_SCALE]
         interval_ms = item[CONF_INTERVAL]
-        cg.add(var.add_polled_sensor(addr, scale, cg.uint32(interval_ms), sens))
+        cg.add(var.add_polled_sensor(addr, scale, cg.uint32_t(interval_ms), sens))
+
+    # Periodically report a local ESPHome temperature sensor to the AC as "remote temp"
+    if (rst := config.get(CONF_REPORT_SENSOR_TEMP)) is not None:
+        src = await cg.get_variable(rst[CONF_SENSOR])
+        cg.add(var.set_ext_temp_source(src))
+        cg.add(var.set_ext_temp_enabled(rst["enabled"]))
+        cg.add(var.set_ext_temp_interval(cg.uint32_t(rst[CONF_INTERVAL])))
