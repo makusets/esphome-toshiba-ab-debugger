@@ -44,7 +44,7 @@ climate:
     id: toshiba_ac
     connected:
       name: "Toshiba AC Connected"
-    master: 0x01 # Master ID in Toshiba protocol, optional, default is 0x00, for some units needs to be set to 0x01 
+    master: 0x00 # Master ID in Toshiba protocol, optional, default is 0x00, for some units needs to be set to 0x01 
 ```
 
 ## Optional section if you install a BME280 sensor
