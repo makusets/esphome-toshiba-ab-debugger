@@ -598,7 +598,7 @@ void ToshibaAbClimate::setup() {
   }
 });
 }
-
+}
 
 
 void ToshibaAbClimate::sync_from_received_state() {
