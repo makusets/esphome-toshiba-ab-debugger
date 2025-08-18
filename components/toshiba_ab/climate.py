@@ -148,11 +148,11 @@ async def to_code(config):
         addr = item[CONF_ADDRESS]
         scale = item[CONF_SCALE]
         interval_ms = item[CONF_INTERVAL]
-        cg.add(var.add_polled_sensor(addr, scale, cg.uint32_t(interval_ms), sens))
+        cg.add(var.add_polled_sensor(addr, scale, cg.uint32(interval_ms), sens))
 
     # Periodically report a local ESPHome temperature sensor to the AC as "remote temp"
     if (rst := config.get(CONF_REPORT_SENSOR_TEMP)) is not None:
         src = await cg.get_variable(rst[CONF_SENSOR])
         cg.add(var.set_ext_temp_source(src))
         cg.add(var.set_ext_temp_enabled(rst["enabled"]))
-        cg.add(var.set_ext_temp_interval(cg.uint32_t(rst[CONF_INTERVAL])))
+        cg.add(var.set_ext_temp_interval(cg.uint32(rst[CONF_INTERVAL])))
