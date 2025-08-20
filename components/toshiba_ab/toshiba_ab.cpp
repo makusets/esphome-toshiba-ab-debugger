@@ -300,6 +300,7 @@ void ToshibaAbLogger::loop() {
 
   if (last_master_alive_millis_ > 0 && (millis() - last_master_alive_millis_) > LAST_ALIVE_TIMEOUT_MILLIS) {
   ESP_LOGW(TAG, "No master frames for a while (disconnected?)");
+  last_master_alive_millis_ = millis;  // reset last alive time
   }
 }
 
