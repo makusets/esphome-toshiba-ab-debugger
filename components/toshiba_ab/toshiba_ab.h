@@ -3,6 +3,8 @@
 #include "esphome/components/uart/uart.h"
 #include <bitset>
 #include <queue>
+#include "esphome/core/callback.h"   // <-- needed for CallbackManager
+#include <vector>
 
 namespace esphome {
 namespace toshiba_ab {
@@ -280,6 +282,7 @@ protected:
   uint32_t loops_with_reads_ = 0;
   uint32_t last_read_millis_ = 0;
   bool can_read_packet = false;
+  uint32_t last_received_frame_millis_ = 0;
 
 };
 
