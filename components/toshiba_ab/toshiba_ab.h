@@ -1,7 +1,6 @@
 #pragma once
 
 #include "esphome/components/uart/uart.h"
-#include "esphome/components/sensor/sensor.h"
 
 #include <bitset>
 #include <queue>
@@ -276,7 +275,7 @@ protected:
 
 
   // callbacks
-  CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
+//  CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
 
  private:
   uint32_t loops_without_reads_ = 0;

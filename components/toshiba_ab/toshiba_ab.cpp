@@ -223,8 +223,6 @@ bool ToshibaAbLogger::receive_data_frame(const struct DataFrame *frame) {
 
     return false;
   }
-  // still notify any listeners of real frames
-  this->set_data_received_callback_.call(frame);
   process_received_data(frame);
   return true;
 }
