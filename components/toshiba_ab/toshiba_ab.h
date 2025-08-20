@@ -271,8 +271,8 @@ class ToshibaAbLogger : public Component, public uart::UARTDevice {
 protected:
   DataFrameReader data_reader;
 
-  void process_received_data(const struct DataFrame *frame);
-  void received_data(const std::vector<uint8_t> data); 
+  bool process_received_data(const struct DataFrame *frame);
+  bool received_data(const std::vector<uint8_t> data); 
 
   // callbacks
 //  CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
