@@ -6,7 +6,7 @@ from esphome.const import CONF_ID
 DEPENDENCIES = ["uart"]
 AUTO_LOAD = []
 
-toshiba_ab_ns = cg.esphome_ns.namespace("toshiba_ab_logger")
+toshiba_ab_ns = cg.esphome_ns.namespace("toshiba_ab")
 
 CONF_MASTER = "master"
 
@@ -21,7 +21,7 @@ CONFIG_SCHEMA = cv.Schema(
 
 def _validate_uart(config):
     uart.final_validate_device_schema(
-        "toshiba_ab_logger", baud_rate=2400, require_rx=True, require_tx=False
+        "toshiba_ab", baud_rate=2400, require_rx=True, require_tx=False
     )(config)
 
 FINAL_VALIDATE_SCHEMA = _validate_uart
