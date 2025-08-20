@@ -272,7 +272,7 @@ protected:
   DataFrameReader data_reader;
 
   void process_received_data(const struct DataFrame *frame);
-
+  void received_data(const std::vector<uint8_t> data); 
 
   // callbacks
 //  CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
@@ -283,6 +283,8 @@ protected:
   uint32_t last_read_millis_ = 0;
   bool can_read_packet = false;
   uint32_t last_received_frame_millis_ = 0;
+  uint32_t last_master_alive_millis_ = 0;
+
 
 };
 
