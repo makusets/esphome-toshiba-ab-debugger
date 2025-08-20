@@ -267,12 +267,15 @@ class ToshibaAbLogger : public Component, public uart::UARTDevice {
   uint8_t master_address_ = 0x00;
   void set_master_address(uint8_t address);
 
+  bool receive_data(std::vector<uint8_t> data);
+  bool receive_data_frame(const struct DataFrame *frame);
+
 
 protected:
   DataFrameReader data_reader;
 
-  bool process_received_data(const struct DataFrame *frame);
-  bool received_data(const std::vector<uint8_t> data); 
+  void process_received_data(const struct DataFrame *frame);
+ 
 
   // callbacks
 //  CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
