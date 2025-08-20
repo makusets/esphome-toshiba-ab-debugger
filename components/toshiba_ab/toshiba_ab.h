@@ -3,7 +3,7 @@
 #include "esphome/components/uart/uart.h"
 #include <bitset>
 #include <queue>
-#include "esphome/core/callback.h"   // <-- needed for CallbackManager
+#include "esphome/core/callbacks.h"   // <-- needed for CallbackManager
 #include <vector>
 
 namespace esphome {
