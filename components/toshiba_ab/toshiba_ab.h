@@ -108,12 +108,7 @@ const uint8_t SENSOR_ADDRESS_OUT_TEMP = 0x02;   // Outdoor temperature sensor
 const uint8_t SENSOR_ADDRESS_IN_TEMP = 0x03;    // Indoor temperature sensor
 
 // adds all the sensors configured in yaml to the component
-struct PolledSensor {
-  uint8_t id;                     // sensor ID (address) for 0x17 query
-  float scale;                    // scale factor to apply to value
-  uint32_t interval_ms;           // polling interval
-  sensor::Sensor *sensor;         // target sensor to publish into
-};
+
 
 
 struct DataFrame {
