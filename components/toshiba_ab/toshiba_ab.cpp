@@ -74,6 +74,8 @@ void ToshibaAbLogger::dump_config() {
 
 void ToshibaAbLogger::setup() {
   ESP_LOGD(TAG, "Setting up Toshiba Protocol sniffer...");
+  this->can_read_packet = true;  // start consuming immediately
+  last_master_alive_millis_ = millis();  // reset last alive time
 }
 
 
