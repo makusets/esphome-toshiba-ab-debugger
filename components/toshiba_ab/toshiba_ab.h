@@ -1,6 +1,8 @@
 #pragma once
 
 #include "esphome/components/uart/uart.h"
+#include "esphome/components/sensor/sensor.h"
+
 #include <bitset>
 #include <queue>
 #include <vector>
