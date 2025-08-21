@@ -191,7 +191,10 @@ struct DataFrameReader {
   // Returns true when a complete frame is received, false otherwise
   // The frame is stored in the `frame` member variable
   DataFrame frame;
+   // Count of "Ignoring noise" events (external counter owned by the logger)
+  uint32_t *noise_counter_ptr = nullptr;
 
+  inline void set_noise_counter(uint32_t *p) { this->noise_counter_ptr = p; }
   bool crc_valid{false};
   bool complete{false};
   uint8_t  data_index_{0};
