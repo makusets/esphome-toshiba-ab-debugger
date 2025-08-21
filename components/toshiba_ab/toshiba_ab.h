@@ -209,6 +209,7 @@ struct DataFrameReader {
     // Ignore a common noise byte at start
     if (data_index_ == 0 && (byte != 0x00 && byte != 0x04 &&byte != 0x01 && byte != 0x40))  {
       ESP_LOGV("READER", "Ignoring noise");
+      if (noise_counter_ptr) (*noise_counter_ptr)++;  // <-- bump "noise" metric
       return false;
     }
     // Store byte
@@ -281,6 +282,27 @@ protected:
 //  CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
 
  private:
+// noise measurements
+  // -------- Metrics (5-minute sliding window, logged every 20 s) --------
+  static constexpr uint32_t METRIC_BUCKET_MS = 20 * 1000;  // 20 s
+  static constexpr uint8_t  METRIC_BUCKETS   = 15;         // 15 × 20 s = 5 min
+  struct MetricBucket {
+    uint32_t failed_crc{0};
+    uint32_t noise{0};
+  };
+  MetricBucket metric_buckets_[METRIC_BUCKETS]{};
+  uint8_t      metric_idx_{0};              // points to the "just finished" bucket
+  uint32_t     metric_bucket_start_ms_{0};  // start time of the current 20 s bucket
+  uint32_t     metric_window_start_ms_{0};  // first time we started metrics
+  // live counters for the *current* 20 s bucket
+  uint32_t     metric_failed_live_{0};
+  uint32_t     metric_noise_live_{0};
+  // helper
+  void metrics_roll_and_log_();
+
+
+
+
   uint32_t loops_without_reads_ = 0;
   uint32_t loops_with_reads_ = 0;
   uint32_t last_read_millis_ = 0;

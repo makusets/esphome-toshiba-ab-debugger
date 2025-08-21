@@ -76,6 +76,12 @@ void ToshibaAbLogger::setup() {
   ESP_LOGD(TAG, "Setting up Toshiba Protocol sniffer...");
   this->can_read_packet = true;  // start consuming immediately
   last_master_alive_millis_ = millis();  // reset last alive time
+  // Noise Metrics: start 20 s bucket and attach "ignore noise" counter
+  this->metric_window_start_ms_ = millis();
+  this->metric_bucket_start_ms_ = this->metric_window_start_ms_;
+  this->metric_failed_live_     = 0;
+  this->metric_noise_live_      = 0;
+  this->data_reader.set_noise_counter(&this->metric_noise_live_);  
 }
 
 
@@ -222,6 +228,8 @@ bool ToshibaAbLogger::receive_data_frame(const struct DataFrame *frame) {
   if (frame->crc() != frame->calculate_crc()) {
     ESP_LOGW(TAG, "CRC check failed");
     log_data_frame("Failed frame", frame);
+   //Noise  Metrics: bump CRC-fail counter for the current 20 s bucket
+    this->metric_failed_live_++;
 
     return false;
   }
@@ -229,6 +237,45 @@ bool ToshibaAbLogger::receive_data_frame(const struct DataFrame *frame) {
   return true;
 }
 
+// -------------------------------------------------------------------
+// Noise Metrics
+void ToshibaAbLogger::metrics_roll_and_log_() {
+  const uint32_t now = millis();
+  // Roll one or more 20 s buckets if we've crossed boundaries
+  while ((now - this->metric_bucket_start_ms_) >= METRIC_BUCKET_MS) {
+    // Store the just-finished live counts into the current bucket slot
+    this->metric_buckets_[this->metric_idx_].failed_crc = this->metric_failed_live_;
+    this->metric_buckets_[this->metric_idx_].noise      = this->metric_noise_live_;
+    // Reset live counts for the next 20 s window
+    this->metric_failed_live_ = 0;
+    this->metric_noise_live_  = 0;
+    // Keep the reader writing into the fresh live counter
+    this->data_reader.set_noise_counter(&this->metric_noise_live_);
+    // Advance time & index
+    this->metric_bucket_start_ms_ += METRIC_BUCKET_MS;
+    this->metric_idx_ = (this->metric_idx_ + 1) % METRIC_BUCKETS;
+
+    // Compute sums over the last 5 minutes (the 15 stored buckets)
+    uint32_t sum_fail = 0, sum_noise = 0;
+    for (uint8_t i = 0; i < METRIC_BUCKETS; i++) {
+      sum_fail  += this->metric_buckets_[i].failed_crc;
+      sum_noise += this->metric_buckets_[i].noise;
+    }
+    // Work out how many minutes have actually elapsed since start (cap at 5)
+    const float elapsed_min = std::min(5.0f, (now - this->metric_window_start_ms_) / 60000.0f);
+    if (elapsed_min > 0.0f) {
+      const float avg_fail_per_min  = sum_fail  / elapsed_min;
+      const float avg_noise_per_min = sum_noise / elapsed_min;
+      ESP_LOGI(TAG,
+               "AB stats (last %.1f min): CRC fails = %.1f/min, Ignoring noise = %.1f/min "
+               "[window totals: fail=%lu, noise=%lu]",
+               elapsed_min, avg_fail_per_min, avg_noise_per_min,
+               static_cast<unsigned long>(sum_fail),
+               static_cast<unsigned long>(sum_noise));
+    }
+  }
+}
+// -------------------------------------------------------------------  
 
 void ToshibaAbLogger::loop() {
 
@@ -302,6 +349,8 @@ void ToshibaAbLogger::loop() {
   ESP_LOGW(TAG, "No master frames for a while (disconnected?)");
   last_master_alive_millis_ = millis();  // reset last alive time
   }
+  // Roll noise metrics & log every ~20 s
+  this->metrics_roll_and_log_();
 }
 
 
