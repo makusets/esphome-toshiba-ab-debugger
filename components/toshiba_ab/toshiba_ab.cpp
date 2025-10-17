@@ -1,4 +1,5 @@
 #include "toshiba_ab.h"
+#include "esphome.h"
 
 
 namespace esphome {
