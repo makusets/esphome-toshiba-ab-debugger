@@ -5,6 +5,7 @@ namespace esphome {
 namespace toshiba_ab {
 
 
+static uint8_t tx_enable_pin = 16;  // TX enable pin, when low = receive mode, when high = transmit mode
 
 static const char *const TAG = "Toshiba logger";
 
@@ -74,6 +75,8 @@ void ToshibaAbLogger::dump_config() {
 
 void ToshibaAbLogger::setup() {
   ESP_LOGD(TAG, "Setting up Toshiba Protocol sniffer...");
+  pinMode(tx_enable_pin, OUTPUT);
+  digitalWrite(tx_enable_pin, LOW);
   this->can_read_packet = true;  // start consuming immediately
   last_master_alive_millis_ = millis();  // reset last alive time
   // Noise Metrics: start 20 s bucket and attach "ignore noise" counter
