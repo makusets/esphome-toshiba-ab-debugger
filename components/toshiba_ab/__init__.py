@@ -9,6 +9,7 @@ AUTO_LOAD = []
 toshiba_ab_ns = cg.esphome_ns.namespace("toshiba_ab")
 
 CONF_MASTER = "master"
+CONF_DEBUG = "debug_mode"
 
 ToshibaAbLogger = toshiba_ab_ns.class_("ToshibaAbLogger", cg.Component, uart.UARTDevice)
 
@@ -16,6 +17,7 @@ CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(ToshibaAbLogger),
         cv.Optional(CONF_MASTER, default=0x00): cv.uint8_t,
+        cv.Optional(CONF_DEBUG, default="normal"): cv.one_of("normal", "raw"),
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 
@@ -31,3 +33,4 @@ async def to_code(config):
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
     cg.add(var.set_master_address(config[CONF_MASTER]))
+    cg.add(var.set_debug_mode(config.get(CONF_DEBUG, "normal")))

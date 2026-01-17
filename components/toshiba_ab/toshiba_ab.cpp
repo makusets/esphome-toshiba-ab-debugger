@@ -80,12 +80,16 @@ void ToshibaAbLogger::setup() {
   digitalWrite(tx_enable_pin, LOW);
   this->can_read_packet = true;  // start consuming immediately
   last_master_alive_millis_ = millis();  // reset last alive time
-  // Noise Metrics: start 20 s bucket and attach "ignore noise" counter
-  this->metric_window_start_ms_ = millis();
-  this->metric_bucket_start_ms_ = this->metric_window_start_ms_;
-  this->metric_failed_live_     = 0;
-  this->metric_noise_live_      = 0;
-  this->data_reader.set_noise_counter(&this->metric_noise_live_);  
+  // Noise Metrics: only enable in NORMAL mode (disabled in RAW/debug)
+  if (this->debug_mode_ == DebugMode::NORMAL) {
+    this->metric_window_start_ms_ = millis();
+    this->metric_bucket_start_ms_ = this->metric_window_start_ms_;
+    this->metric_failed_live_     = 0;
+    this->metric_noise_live_      = 0;
+    this->data_reader.set_noise_counter(&this->metric_noise_live_);
+  } else {
+    this->data_reader.set_noise_counter(nullptr);
+  }
 }
 
 
@@ -289,6 +293,10 @@ void ToshibaAbLogger::loop() {
     int byte = read();
     if (byte >= 0) {
       bytes_read++;
+      // Accumulate time-based raw frames only in RAW debug mode
+      if (this->debug_mode_ == ToshibaAbLogger::DebugMode::RAW) {
+        this->time_frame_put(static_cast<uint8_t>(byte));
+      }
 
       if (!can_read_packet)
         continue;  // wait until can read packet
@@ -296,12 +304,13 @@ void ToshibaAbLogger::loop() {
       if (data_reader.put(byte)) {
         // packet complete
 
-        last_received_frame_millis_ = millis();
-
-        auto frame = data_reader.frame;
-
-        if (!receive_data_frame(&frame)) {
-        }
+          // RAW debug mode: bypass parser entirely and only collect/log raw frames
+          if (this->debug_mode_ == DebugMode::RAW) {
+            this->time_frame_put(static_cast<uint8_t>(byte));
+            continue;
+          }
+          if (!can_read_packet)
+            continue;  // wait until can read packet
 
         data_reader.reset();
 
@@ -344,17 +353,70 @@ void ToshibaAbLogger::loop() {
         }
         can_read_packet = true;
         data_reader.reset();
+        // flush any pending time-based raw frame if we've been idle
+        this->time_frame_flush_if_idle(millis());
         last_read_millis_ = 0;
       }
     }
   }
 
-  if (last_master_alive_millis_ > 0 && (millis() - last_master_alive_millis_) > LAST_ALIVE_TIMEOUT_MILLIS) {
-  ESP_LOGW(TAG, "No master frames for a while (disconnected?)");
-  last_master_alive_millis_ = millis();  // reset last alive time
+  if (this->debug_mode_ == DebugMode::NORMAL) {
+    if (last_master_alive_millis_ > 0 && (millis() - last_master_alive_millis_) > LAST_ALIVE_TIMEOUT_MILLIS) {
+      ESP_LOGW(TAG, "No master frames for a while (disconnected?)");
+      last_master_alive_millis_ = millis();  // reset last alive time
+    }
+    // Roll noise metrics & log every ~20 s
+    this->metrics_roll_and_log_();
   }
-  // Roll noise metrics & log every ~20 s
-  this->metrics_roll_and_log_();
+}
+
+
+// Time-based raw frame builder implementation
+// RAW mode: accumulate bytes using timing; when a sufficiently large gap is
+// observed (>= PACKET_MIN_WAIT_MILLIS) treat the accumulated bytes as a
+// complete raw frame and log it (ignoring the length byte). Partial buffers
+// are logged on gap/idle instead of being dropped silently.
+void ToshibaAbLogger::time_frame_put(uint8_t byte) {
+  const uint32_t now = millis();
+
+  if (!this->time_frame_buf_.empty()) {
+    const uint32_t gap = now - this->time_frame_last_byte_ms_;
+    if (gap >= PACKET_MIN_WAIT_MILLIS) {
+      // Consider previous bytes a complete frame and log them
+      log_raw_data("TIME-FRAME-GAP:", this->time_frame_buf_.data(), this->time_frame_buf_.size());
+      this->time_frame_buf_.clear();
+    }
+  }
+
+  // Append byte to current buffer
+  if (this->time_frame_buf_.size() < DATA_FRAME_MAX_SIZE) {
+    this->time_frame_buf_.push_back(byte);
+  } else {
+    // Buffer full: log and start new
+    log_raw_data("TIME-FRAME-TRUNC:", this->time_frame_buf_.data(), this->time_frame_buf_.size());
+    this->time_frame_buf_.clear();
+    this->time_frame_buf_.push_back(byte);
+  }
+
+  this->time_frame_last_byte_ms_ = now;
+}
+
+void ToshibaAbLogger::time_frame_flush_if_idle(uint32_t now_ms) {
+  if (this->time_frame_buf_.empty())
+    return;
+
+  if ((now_ms - this->time_frame_last_byte_ms_) >= PACKET_MIN_WAIT_MILLIS) {
+    log_raw_data("TIME-FRAME-FLUSH:", this->time_frame_buf_.data(), this->time_frame_buf_.size());
+    this->time_frame_buf_.clear();
+    this->time_frame_last_byte_ms_ = 0;
+  }
+}
+
+void ToshibaAbLogger::set_debug_mode(const std::string &mode) {
+  if (mode == "raw")
+    this->debug_mode_ = DebugMode::RAW;
+  else
+    this->debug_mode_ = DebugMode::NORMAL;
 }
 
 

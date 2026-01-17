@@ -5,6 +5,7 @@
 #include <bitset>
 #include <queue>
 #include <vector>
+#include <string>
 
 namespace esphome {
 namespace toshiba_ab {
@@ -270,6 +271,9 @@ class ToshibaAbLogger : public Component, public uart::UARTDevice {
   
   uint8_t master_address_ = 0x00;
   void set_master_address(uint8_t address);
+  // Debug mode: "normal" (parser) or "raw" (time-based frame builder)
+  enum class DebugMode { NORMAL = 0, RAW = 1 };
+  void set_debug_mode(const std::string &mode);
 
   bool receive_data(std::vector<uint8_t> data);
   bool receive_data_frame(const struct DataFrame *frame);
@@ -285,6 +289,16 @@ protected:
 //  CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
 
  private:
+  DebugMode debug_mode_ = DebugMode::NORMAL;
+  // Time-based raw frame builder: accumulate bytes that arrive with small
+  // inter-byte gaps; a large gap signals a frame boundary and causes the
+  // accumulated raw frame to be logged.
+  void time_frame_put(uint8_t byte);
+  void time_frame_flush_if_idle(uint32_t now_ms);
+
+  std::vector<uint8_t> time_frame_buf_;
+  uint32_t time_frame_last_byte_ms_{0};
+  static constexpr uint32_t TIME_FRAME_BYTE_GAP_MS = 5;  // ms between bytes allowed for same frame
 // noise measurements
   // -------- Metrics (5-minute sliding window, logged every 20 s) --------
   static constexpr uint32_t METRIC_BUCKET_MS = 20 * 1000;  // 20 s
