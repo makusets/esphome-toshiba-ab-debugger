@@ -293,9 +293,10 @@ void ToshibaAbLogger::loop() {
     int byte = read();
     if (byte >= 0) {
       bytes_read++;
-      // Accumulate time-based raw frames only in RAW debug mode
-      if (this->debug_mode_ == ToshibaAbLogger::DebugMode::RAW) {
+      // RAW debug mode: bypass parser entirely and only collect/log raw frames
+      if (this->debug_mode_ == DebugMode::RAW) {
         this->time_frame_put(static_cast<uint8_t>(byte));
+        continue;
       }
 
       if (!can_read_packet)
@@ -303,23 +304,13 @@ void ToshibaAbLogger::loop() {
 
       if (data_reader.put(byte)) {
         // packet complete
-
-          // RAW debug mode: bypass parser entirely and only collect/log raw frames
-          if (this->debug_mode_ == DebugMode::RAW) {
-            this->time_frame_put(static_cast<uint8_t>(byte));
-            continue;
-          }
-          if (!can_read_packet)
-            continue;  // wait until can read packet
-
+        last_received_frame_millis_ = millis();
+        auto frame = data_reader.frame;
+        if (!receive_data_frame(&frame)) {
+        }
         data_reader.reset();
 
-        // read next packet (if any in the next loop)
-        // the smallest packet (ALIVE) is 32ms wide,
-        // which means there are max ~31 packets per second.
-        // and the loop runs 33-50 times per second.
-        // so should be enough throughput to process packets.
-        // this ensure that each packet is interpreted separately
+        // finished processing this packet; exit to avoid long loops
         break;
       }
     } else {
@@ -383,7 +374,9 @@ void ToshibaAbLogger::time_frame_put(uint8_t byte) {
     const uint32_t gap = now - this->time_frame_last_byte_ms_;
     if (gap >= PACKET_MIN_WAIT_MILLIS) {
       // Consider previous bytes a complete frame and log them
-      log_raw_data("TIME-FRAME-GAP:", this->time_frame_buf_.data(), this->time_frame_buf_.size());
+      if (this->time_frame_buf_.size() >= 3) {
+        log_raw_data("TIME-FRAME-GAP:", this->time_frame_buf_.data(), this->time_frame_buf_.size());
+      }
       this->time_frame_buf_.clear();
     }
   }
@@ -406,7 +399,9 @@ void ToshibaAbLogger::time_frame_flush_if_idle(uint32_t now_ms) {
     return;
 
   if ((now_ms - this->time_frame_last_byte_ms_) >= PACKET_MIN_WAIT_MILLIS) {
-    log_raw_data("TIME-FRAME-FLUSH:", this->time_frame_buf_.data(), this->time_frame_buf_.size());
+    if (this->time_frame_buf_.size() >= 3) {
+      log_raw_data("TIME-FRAME-FLUSH:", this->time_frame_buf_.data(), this->time_frame_buf_.size());
+    }
     this->time_frame_buf_.clear();
     this->time_frame_last_byte_ms_ = 0;
   }
