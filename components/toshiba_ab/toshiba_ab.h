@@ -13,7 +13,7 @@ namespace toshiba_ab {
 const uint32_t ALIVE_MESSAGE_PERIOD_MILLIS = 5000;
 const uint32_t LAST_ALIVE_TIMEOUT_MILLIS = ALIVE_MESSAGE_PERIOD_MILLIS * 3 + 1000;
 
-const uint32_t PACKET_MIN_WAIT_MILLIS = 200;
+const uint32_t PACKET_MIN_WAIT_MILLIS = 10;
 
 
 // const uint8_t TOSHIBA_MASTER = 0x00;  replaced by master_address_ which is setup in yaml
