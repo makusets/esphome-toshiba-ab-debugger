@@ -20,33 +20,33 @@ int main() {
   // A single byte remains in the FIFO until hardware silence, regardless of loop time.
   byte(1000,0xFF); fake_now=2000000; r.loop(); assert(logs.empty());
   interrupt(23917,1U<<UITO); assert(logs.empty() && fifo.empty());
-  r.loop(); assert(logs.size()==1 && logs[0].find("bytes=1 errors=0x00: FF")!=std::string::npos);
-  assert(logs[0].find("boundary_irq_us=23917")!=std::string::npos); logs.clear();
+  r.loop(); assert(logs.size()==1 && logs[0]=="FF");
+  logs.clear();
   // Two frames captured while the ESPHome loop is delayed must stay separate.
   byte(30000,0xFE); byte(34583,0x00); assert(fifo.size()==1);
   interrupt(57500,1U<<UITO);
   byte(70000,0x12); byte(74583,0x34); interrupt(97500,1U<<UITO);
   assert(logs.empty()); fake_now=300000; r.loop();
   assert(logs.size()==2 && logs[0].find("FE:00")!=std::string::npos && logs[1].find("12:34")!=std::string::npos);
-  assert(logs[0].find("boundary_irq_us=57500")!=std::string::npos); logs.clear();
+  assert(logs[0]=="FE:00" && logs[1]=="12:34"); logs.clear();
   // Preserve every byte across fragment boundaries, including the held FIFO byte.
   for(int i=0;i<129;++i) byte(400000+i*4583,static_cast<uint8_t>(i));
   interrupt(1000000,1U<<UITO); r.loop();
-  assert(logs.size()==2 && logs[0].find("OVERFLOW-FRAGMENT")!=std::string::npos);
-  assert(logs[0].find("bytes=128")!=std::string::npos && logs[1].find("bytes=1 errors=0x00: 80")!=std::string::npos);
+  assert(logs.size()==3 && logs[0].find("logging in fragments")!=std::string::npos);
+  assert(logs[1].size()==128*3-1 && logs[2]=="80");
   logs.clear();
   // UART errors remain visible on the queued frame.
   byte(1100000,0xAA); interrupt(1122917,(1U<<UITO)|(1U<<UIPE)|(1U<<UIOF)); r.loop();
-  assert(logs.size()==1 && logs[0].find("errors=0x03: AA")!=std::string::npos); logs.clear();
+  assert(logs.size()==3 && logs[0].find("FIFO overflow")!=std::string::npos && logs[1].find("parity error")!=std::string::npos && logs[2]=="AA"); logs.clear();
   // Exhaust the queue without overwriting already queued records.
   for(int i=0;i<9;++i) { byte(1200000+i*30000,i); interrupt(1222917+i*30000,1U<<UITO); }
   r.loop(); assert(logs.size()==8); // Seven intact captures and one loss warning.
   assert(logs[0].find("2 records dropped")!=std::string::npos); logs.clear();
   byte(1500000,0xBB); interrupt(1522917,1U<<UITO); r.loop();
-  assert(logs.size()==1 && logs[0].find("errors=0x08: BB")!=std::string::npos); logs.clear();
+  assert(logs.size()==2 && logs[0].find("queue loss")!=std::string::npos && logs[1]=="BB"); logs.clear();
   // IRQ timestamps retain uint32 wrap; logging never substitutes loop time.
   byte(UINT32_MAX-100,0xCC); interrupt(22816,1U<<UITO); r.loop();
-  assert(logs.size()==1 && logs[0].find("boundary_irq_us=22816")!=std::string::npos);
+  assert(logs.size()==1 && logs[0]=="CC");
   r.on_shutdown(); assert(!irq_enabled && irq_callback==nullptr && enabled_reg==0);
   // The original normal parser receives queued bytes outside the ISR.
   ToshibaAbLogger normal;

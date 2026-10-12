@@ -44,14 +44,15 @@ between frames. Hardware rounds it up to a whole character time: at 2400 baud,
 8 data bits, even parity, and one stop bit, `20ms` becomes approximately **22.9 ms**.
 Startup logs show the effective timeout. The hardware supports 1–127 character times.
 
-Logs show a frame ID, receiver interrupt timestamps in microseconds since boot,
-byte count, error flags, and the received bytes. These timestamps describe the
-interrupts, rather than exact byte arrival times, and wrap about every 71.6 minutes.
-Long interrupt delays can still hide traffic gaps.
+Frame log messages contain only the hexadecimal bytes, for example:
 
-Frames over 128 bytes are logged as fragments sharing the same ID, followed by
-`FRAME-END`. Queue overflow produces a warning. Error flags are `0x01` FIFO loss,
-`0x02` parity error, `0x04` framing error, and `0x08` queue loss.
+```text
+01:52:11:04:80:86:A1:05:E4
+```
+
+UART errors and lost captures are reported separately as readable warnings.
+Frames over 128 bytes are logged in fragments with a warning. The receiver still
+captures boundaries before logging; long interrupt delays can hide traffic gaps.
 
 Optional settings are `data_bits` (5–8, default 8), `stop_bits` (1 or 2, default 1),
 and `parity` (`NONE`, `EVEN`, or `ODD`). `debug_mode: normal` enables the original
