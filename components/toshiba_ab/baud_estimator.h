@@ -9,6 +9,7 @@ namespace esphome { namespace toshiba_ab {
 class RxEdgeIntervals {
  public:
   void IRAM_ATTR put(uint32_t now_us) {
+    ++edges_;
     const uint32_t delta = now_us - previous_us_;
     previous_us_ = now_us;
     if (!seen_) { seen_ = true; return; }
@@ -26,11 +27,12 @@ class RxEdgeIntervals {
     return true;
   }
   uint32_t dropped() const { return dropped_; }
+  uint32_t edges() const { return edges_; }
   void discard() { tail_ = head_; }
  private:
   uint32_t intervals_[256]{}, previous_us_{0};
   volatile uint16_t head_{0}, tail_{0};
-  volatile uint32_t dropped_{0};
+  volatile uint32_t dropped_{0}, edges_{0};
   bool seen_{false};
 };
 
@@ -65,6 +67,7 @@ class BaudEstimator {
     }
   }
   bool enough() const { return total_ >= 64; }
+  uint32_t samples() const { return total_; }
   size_t candidates(uint32_t out[3]) const {
     if (!enough()) return 0;
     uint8_t selected[3]{}; size_t count = 0;

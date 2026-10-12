@@ -46,8 +46,21 @@ int main() {
   ToshibaAbLogger no_edges; TextSensor no_timing; no_edges.set_diagnostic(&no_timing);
   fake_now=0; no_edges.setup();
   fake_now=60000000; no_edges.loop();
-  assert(no_timing.state=="Configured: 2400 baud, 8E1; baud candidates: inconclusive");
+  assert(no_timing.state=="Configured: 2400 baud, 8E1; baud candidates: unavailable (no RX edge interrupts)");
   assert(edge_callback==nullptr); no_edges.on_shutdown();
+  ToshibaAbLogger few; TextSensor few_samples; few.set_diagnostic(&few_samples);
+  fake_now=0; few.setup(); edges(10000,208); few.loop();
+  fake_now=60000000; few.loop();
+  assert(few_samples.state.find("inconclusive (16/64 timing samples)")!=std::string::npos);
+  few.on_shutdown();
+  ToshibaAbLogger unmatched; TextSensor bad_timing; unmatched.set_diagnostic(&bad_timing);
+  fake_now=0; unmatched.setup();
+  for (int i=0;i<65;++i) {
+    fake_now+=(i%2 ? 417 : 691); in_irq=true; edge_callback(edge_arg); in_irq=false;
+  }
+  unmatched.loop(); fake_now=60000000; unmatched.loop();
+  assert(bad_timing.state.find("inconclusive (no confident timing match)")!=std::string::npos);
+  unmatched.on_shutdown();
   // Lost edge timing discards stale evidence and allows fresh samples.
   ToshibaAbLogger loss; TextSensor lossy; loss.set_auto_parity(true); loss.set_diagnostic(&lossy);
   fake_now=0; loss.setup();
