@@ -19,6 +19,7 @@ void window(ToshibaAbLogger &r,uint32_t error) {
   for(uint32_t i=1;i<=4;++i) receive_frame(r,start+i*5000000,error);
 }
 int main() {
+  gpio_read_level=LOW; // UART pad reads LOW through GPIO even while UART RXD is idle HIGH.
   // A configured baud other than 2400 remains unchanged across every trial.
   ToshibaAbLogger r; TextSensor sensor;
   r.set_uart_config(13,4800,8,1,1); r.set_auto_parity(true); r.set_diagnostic(&sensor);

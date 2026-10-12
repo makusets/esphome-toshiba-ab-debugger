@@ -42,6 +42,12 @@ int main() {
   assert(configured.state.find("Configured: 2400 baud, 8E1; baud candidates: 4800")==0);
   fake_now=60000000; manual.loop(); assert(edge_callback==nullptr && clock_reg==33333);
   manual.on_shutdown();
+  // Missing GPIO edge callbacks must finish as inconclusive, not collect forever.
+  ToshibaAbLogger no_edges; TextSensor no_timing; no_edges.set_diagnostic(&no_timing);
+  fake_now=0; no_edges.setup();
+  fake_now=60000000; no_edges.loop();
+  assert(no_timing.state=="Configured: 2400 baud, 8E1; baud candidates: inconclusive");
+  assert(edge_callback==nullptr); no_edges.on_shutdown();
   // Lost edge timing discards stale evidence and allows fresh samples.
   ToshibaAbLogger loss; TextSensor lossy; loss.set_auto_parity(true); loss.set_diagnostic(&lossy);
   fake_now=0; loss.setup();

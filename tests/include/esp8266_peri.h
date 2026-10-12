@@ -13,7 +13,7 @@ inline uint32_t status_reg=0, enabled_reg=0, cleared_reg=0, clock_reg=0, conf0_r
 #define USD(u) clock_reg
 #define USC0(u) conf0_reg
 #define USC1(u) conf1_reg
-#define USS(u) (static_cast<uint32_t>(fifo.size()))
+#define USS(u) (static_cast<uint32_t>(fifo.size()) | (rx_level == HIGH ? (1U << 15) : 0))
 #define IOSWAP swap_reg
 #define IOSWAPU0 2
 #define UIFF 0
@@ -31,3 +31,5 @@ inline uint32_t status_reg=0, enabled_reg=0, cleared_reg=0, clock_reg=0, conf0_r
 #define UCTOE 31
 #define UCTOT 24
 #define UCFFT 0
+
+#define USRXD 15
