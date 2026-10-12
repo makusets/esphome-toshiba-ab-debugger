@@ -3,6 +3,9 @@
 #include "esphome/core/component.h"
 #include "esphome/core/log.h"
 #include "capture_queue.h"
+#include "parity_detector.h"
+#include "baud_estimator.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 
 #include <bitset>
 #include <queue>
@@ -279,8 +282,11 @@ class ToshibaAbLogger : public Component {
   void set_uart_config(uint8_t pin, uint32_t baud, uint8_t bits, uint8_t parity, uint8_t stops) {
     rx_pin_ = pin; baud_rate_ = baud; data_bits_ = bits; parity_ = parity; stop_bits_ = stops;
   }
+  void set_diagnostic(text_sensor::TextSensor *sensor) { diagnostic_ = sensor; }
+  void set_auto_parity(bool enabled) { auto_parity_ = enabled; }
   void on_shutdown() override;
   static void IRAM_ATTR uart_isr_(void *arg);
+  static void IRAM_ATTR rx_edge_isr_(void *arg);
 
 
   bool receive_data(std::vector<uint8_t> data);
@@ -304,6 +310,24 @@ protected:
   uint32_t reported_dropped_{0};
   bool uart_started_{false};
   void log_capture_(const CapturedFrame &frame);
+  bool auto_parity_{false}, edge_attached_{false};
+  volatile uint32_t last_rx_edge_us_{0};
+  ParityDetector parity_detector_;
+  ParitySample rx_sample_;
+  uint32_t active_rx_bytes_{0}, last_rx_activity_us_{0}, trial_drop_base_{0};
+  uint16_t active_rx_flags_{0};
+  void configure_uart_();  // Call with UART IRQ masked.
+  void discovery_loop_();
+  text_sensor::TextSensor *diagnostic_{nullptr};
+  std::string diagnostic_state_, diagnostic_status_;
+  RxEdgeIntervals rx_edge_intervals_;
+  BaudEstimator baud_estimator_;
+  uint32_t timing_start_ms_{0}, reported_timing_dropped_{0};
+  bool timing_started_{false}, timing_complete_{false};
+  void process_rx_edges_();
+  void finish_edge_measurement_();
+  void refresh_diagnostic_();
+  void publish_diagnostic_(const char *status);
 // noise measurements
   // -------- Metrics (5-minute sliding window, logged every 20 s) --------
   static constexpr uint32_t METRIC_BUCKET_MS = 20 * 1000;  // 20 s

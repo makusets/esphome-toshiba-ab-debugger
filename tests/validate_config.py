@@ -24,6 +24,11 @@ toshiba_ab:
 """
 cases = [
     ('owned-rx', BASE, True),
+    ('auto-defaults', BASE.replace('  baud_rate: 2400\n', '').replace('  parity: EVEN\n', ''), True),
+    ('auto-custom-baud', BASE.replace('baud_rate: 2400', 'baud_rate: 4800').replace('parity: EVEN', 'parity: AUTO'), True),
+    ('diagnostic-off', BASE + '  diagnostic: false\n', True),
+    ('diagnostic-custom-name', BASE + '  diagnostic:\n    name: Serial Discovery\n', True),
+    ('invalid-parity', BASE.replace('parity: EVEN', 'parity: INVALID'), False),
     ('unswapped-rx', BASE.replace('rx_pin: 13', 'rx_pin: 3'), True),
     ('normal-mode', BASE + '  debug_mode: normal\n', True),
     ('no-parity-two-stop', BASE.replace('parity: EVEN', 'parity: NONE\n  stop_bits: 2'), True),
@@ -40,4 +45,10 @@ with tempfile.TemporaryDirectory() as temp:
         path.write_text(config)
         proc = subprocess.run([sys.executable, '-m', 'esphome', 'config', str(path)], capture_output=True, text=True)
         assert (proc.returncode == 0) == valid, (name, proc.stdout, proc.stderr)
+        if name == 'auto-defaults':
+            assert 'baud_rate: 2400' in proc.stdout and 'parity: AUTO' in proc.stdout
+            assert 'name: UART Settings' in proc.stdout and 'entity_category: diagnostic' in proc.stdout
+            assert 'disabled_by_default: false' in proc.stdout
+        if name == 'diagnostic-off':
+            assert 'diagnostic: false' in proc.stdout
         print('PASS:', name)

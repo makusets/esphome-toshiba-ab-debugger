@@ -98,6 +98,37 @@ void ToshibaAbLogger::setup() {
     pinMode(3, SPECIAL);
     IOSWAP &= ~(1U << IOSWAPU0);
   }
+  if (auto_parity_) {
+    parity_detector_.start(millis());
+    parity_ = 1;  // Always begin discovery with EVEN at the configured baud.
+  }
+  configure_uart_();
+  ETS_UART_INTR_ATTACH(uart_isr_, this);
+  USIE(0) = (1U << UIFF) | (1U << UITO) | (1U << UIOF) | (1U << UIPE) | (1U << UIFR);
+  uart_started_ = true;
+  baud_estimator_.set_configured(baud_rate_);
+  timing_start_ms_ = millis();
+  if (auto_parity_ || diagnostic_ != nullptr) {
+    timing_started_ = true;
+    last_rx_edge_us_ = micros();
+    attachInterruptArg(rx_pin_, rx_edge_isr_, this, CHANGE);
+    edge_attached_ = true;
+  }
+  ETS_UART_INTR_ENABLE();
+#else
+  this->mark_failed();
+#endif
+  if (auto_parity_)
+    ESP_LOGI(TAG, "Serial parity discovery: EVEN, ODD, NONE; baud fixed at %lu", static_cast<unsigned long>(baud_rate_));
+  publish_diagnostic_(auto_parity_ ? "Discovering" : "Configured");
+  last_master_alive_millis_ = millis();
+  metric_window_start_ms_ = millis();
+  metric_bucket_start_ms_ = metric_window_start_ms_;
+  data_reader.set_noise_counter(debug_mode_ == DebugMode::NORMAL ? &metric_noise_live_ : nullptr);
+}
+
+void ToshibaAbLogger::configure_uart_() {
+#ifdef USE_ESP8266
   // Only the RX pin is muxed; TX is never enabled on a GPIO.
   USD(0) = (80000000UL + baud_rate_ / 2) / baud_rate_;
   uint32_t config = (static_cast<uint32_t>(data_bits_ - 5) << UCBN) |
@@ -114,17 +145,21 @@ void ToshibaAbLogger::setup() {
   // silence detector stays armed even during arbitrarily long captures.
   USC1(0) = (2U << UCFFT) | (symbols << UCTOT) | (1U << UCTOE);
   USIC(0) = 0xffff;
-  ETS_UART_INTR_ATTACH(uart_isr_, this);
-  USIE(0) = (1U << UIFF) | (1U << UITO) | (1U << UIOF) | (1U << UIPE) | (1U << UIFR);
-  uart_started_ = true;
-  ETS_UART_INTR_ENABLE();
-#else
-  this->mark_failed();
+  capture_.reset_trial();
+  rx_sample_ = ParitySample{};
+  active_rx_bytes_ = 0; active_rx_flags_ = 0;
+  last_rx_activity_us_ = micros();
+  trial_drop_base_ = capture_.dropped();
 #endif
-  last_master_alive_millis_ = millis();
-  metric_window_start_ms_ = millis();
-  metric_bucket_start_ms_ = metric_window_start_ms_;
-  data_reader.set_noise_counter(debug_mode_ == DebugMode::NORMAL ? &metric_noise_live_ : nullptr);
+}
+
+void IRAM_ATTR ToshibaAbLogger::rx_edge_isr_(void *arg) {
+#ifdef USE_ESP8266
+  auto *self = static_cast<ToshibaAbLogger *>(arg);
+  const uint32_t now_us = micros();
+  self->last_rx_edge_us_ = now_us;
+  self->rx_edge_intervals_.put(now_us);
+#endif
 }
 
 void IRAM_ATTR ToshibaAbLogger::uart_isr_(void *arg) {
@@ -132,23 +167,48 @@ void IRAM_ATTR ToshibaAbLogger::uart_isr_(void *arg) {
   auto *self = static_cast<ToshibaAbLogger *>(arg);
   const uint32_t status = USIS(0);
   const uint32_t now_us = micros();
-  if (status & (1U << UIOF)) self->capture_.error(CaptureQueue::FIFO_LOSS);
-  if (status & (1U << UIPE)) self->capture_.error(CaptureQueue::PARITY_ERROR);
-  if (status & (1U << UIFR)) self->capture_.error(CaptureQueue::FRAMING_ERROR);
+  if (status & (1U << UIOF)) {
+    self->capture_.error(CaptureQueue::FIFO_LOSS);
+    ++self->rx_sample_.losses;
+  }
+  if (status & (1U << UIPE)) {
+    self->capture_.error(CaptureQueue::PARITY_ERROR);
+    ++self->rx_sample_.parity_events;
+    self->active_rx_flags_ |= CaptureQueue::PARITY_ERROR;
+  }
+  if (status & (1U << UIFR)) {
+    self->capture_.error(CaptureQueue::FRAMING_ERROR);
+    ++self->rx_sample_.framing_events;
+    self->active_rx_flags_ |= CaptureQueue::FRAMING_ERROR;
+  }
   const bool idle = status & (1U << UITO);
   uint32_t count = (USS(0) >> USRXC) & 0xff;
+  if (count > 0) self->last_rx_activity_us_ = now_us;
   // Snapshot and bound the work; leave one byte unless this is a silence IRQ.
   if (!idle && count > 0) --count;
   for (uint32_t i = 0; i < count; ++i)
     self->capture_.put(static_cast<uint8_t>(USF(0)), now_us);
-  if (idle)
+  self->rx_sample_.bytes += count;
+  self->active_rx_bytes_ += count;
+  if (idle) {
     self->capture_.finish(now_us);
+    if (self->active_rx_bytes_ > 0) {
+      ++self->rx_sample_.frames;
+      if (self->active_rx_flags_ & CaptureQueue::PARITY_ERROR) ++self->rx_sample_.parity_frames;
+      if (self->active_rx_flags_ & CaptureQueue::FRAMING_ERROR) ++self->rx_sample_.framing_frames;
+    }
+    self->active_rx_bytes_ = 0; self->active_rx_flags_ = 0;
+  }
   USIC(0) = status;
 #endif
 }
 
 void ToshibaAbLogger::on_shutdown() {
 #ifdef USE_ESP8266
+  if (edge_attached_) {
+    detachInterrupt(rx_pin_);
+    edge_attached_ = false;
+  }
   if (uart_started_) {
     ETS_UART_INTR_DISABLE();
     USIE(0) = 0;
@@ -367,6 +427,7 @@ void ToshibaAbLogger::log_capture_(const CapturedFrame &frame) {
 }
 
 void ToshibaAbLogger::loop() {
+  if (!timing_complete_) process_rx_edges_();
   // Bound loop work so logging a busy receiver does not starve other components.
   for (uint8_t n = 0; n < 7; ++n) {
     CapturedFrame frame;
@@ -386,6 +447,7 @@ void ToshibaAbLogger::loop() {
     }
     if (!have_frame)
       break;
+    if (auto_parity_ && parity_detector_.scanning()) parity_detector_.observe(frame);
     if (debug_mode_ == DebugMode::RAW) {
       log_capture_(frame);
     } else {
@@ -403,6 +465,9 @@ void ToshibaAbLogger::loop() {
       if (frame.final) data_reader.reset();
     }
   }
+  if (auto_parity_) discovery_loop_();
+  else if (!timing_complete_ && baud_estimator_.enough() && (millis() - timing_start_ms_) >= 60000)
+    finish_edge_measurement_();
   if (debug_mode_ == DebugMode::NORMAL) {
     if ((millis() - last_master_alive_millis_) > LAST_ALIVE_TIMEOUT_MILLIS) {
       ESP_LOGW(TAG, "No master frames for a while (disconnected?)");
@@ -410,6 +475,112 @@ void ToshibaAbLogger::loop() {
     }
     metrics_roll_and_log_();
   }
+}
+
+void ToshibaAbLogger::discovery_loop_() {
+#ifdef USE_ESP8266
+  using Action = ParityDetector::Action;
+  if (!parity_detector_.scanning()) return;
+  ETS_UART_INTR_DISABLE();
+  // A queued record, active frame, FIFO byte, or recent activity postpones a
+  // settings change. No partial frame is ever used as discovery evidence.
+  const bool idle = capture_.idle() && active_rx_bytes_ == 0 && ((USS(0) >> USRXC) & 0xff) == 0 &&
+                    (micros() - last_rx_activity_us_) >= effective_gap_us_ &&
+                    (micros() - last_rx_edge_us_) >= effective_gap_us_ && digitalRead(rx_pin_) == HIGH;
+  Action action = Action::NONE;
+  bool waiting_for_traffic = false;
+  if (idle) {
+    ParitySample sample = rx_sample_;
+    sample.losses += capture_.dropped() - trial_drop_base_;
+    waiting_for_traffic = parity_detector_.scanning() && (sample.frames < 3 || sample.bytes < 12);
+    action = parity_detector_.step(millis(), sample);
+    if (action != Action::NONE) {
+      parity_ = parity_detector_.parity();
+      configure_uart_();
+      data_reader.reset();
+    }
+  }
+  ETS_UART_INTR_ENABLE();
+  if (!parity_detector_.scanning()) finish_edge_measurement_();
+  const char *parity = parity_ == 1 ? "EVEN" : (parity_ == 2 ? "ODD" : "NONE");
+  if (action == Action::LOCK)
+    ESP_LOGI(TAG, "Serial parity detected: %s (%lu baud)", parity, static_cast<unsigned long>(baud_rate_));
+  else if (action == Action::UNCERTAIN)
+    ESP_LOGI(TAG, "Serial parity uncertain; keeping EVEN (%lu baud)", static_cast<unsigned long>(baud_rate_));
+  else if (action == Action::NEXT)
+    ESP_LOGI(TAG, "Testing serial parity: %s (%lu baud)", parity, static_cast<unsigned long>(baud_rate_));
+  if (action == Action::LOCK) publish_diagnostic_("Detected");
+  else if (action == Action::UNCERTAIN) publish_diagnostic_("Uncertain");
+  else if (action == Action::NEXT) publish_diagnostic_("Discovering");
+  else if (action == Action::RETRY) publish_diagnostic_("Retrying after capture loss");
+  else if (action == Action::NONE && parity_detector_.scanning() && idle)
+    publish_diagnostic_(waiting_for_traffic ? "Waiting for traffic" : "Discovering");
+#endif
+}
+
+void ToshibaAbLogger::process_rx_edges_() {
+#ifdef USE_ESP8266
+  if (!timing_started_) return;
+  ETS_GPIO_INTR_DISABLE();
+  const uint32_t dropped = rx_edge_intervals_.dropped();
+  if (dropped != reported_timing_dropped_) rx_edge_intervals_.discard();
+  ETS_GPIO_INTR_ENABLE();
+  if (dropped != reported_timing_dropped_) {
+    reported_timing_dropped_ = dropped;
+    baud_estimator_.reset();  // Lost timing samples must not bias the ranking.
+    ESP_LOGW(TAG, "RX edge timing overflow; collecting fresh timing samples");
+  }
+  // Bound loop work independently of the UART capture queue.
+  for (uint16_t i = 0; i < 255; ++i) {
+    uint32_t interval;
+    ETS_GPIO_INTR_DISABLE();
+    const bool have = rx_edge_intervals_.pop(interval);
+    ETS_GPIO_INTR_ENABLE();
+    if (!have) break;
+    baud_estimator_.observe(interval);
+  }
+  refresh_diagnostic_();
+#endif
+}
+
+void ToshibaAbLogger::finish_edge_measurement_() {
+#ifdef USE_ESP8266
+  if (timing_complete_) return;
+  if (edge_attached_) {
+    detachInterrupt(rx_pin_);
+    edge_attached_ = false;
+  }
+  process_rx_edges_();  // Include the last intervals before freezing the result.
+  timing_complete_ = true;
+  refresh_diagnostic_();
+#endif
+}
+
+void ToshibaAbLogger::publish_diagnostic_(const char *status) {
+  diagnostic_status_ = status;
+  refresh_diagnostic_();
+}
+
+void ToshibaAbLogger::refresh_diagnostic_() {
+  if (diagnostic_ == nullptr || diagnostic_status_.empty()) return;
+  const char parity = parity_ == 1 ? 'E' : (parity_ == 2 ? 'O' : 'N');
+  std::string state = str_sprintf("%s: %lu baud, %u%c%u", diagnostic_status_.c_str(),
+      static_cast<unsigned long>(baud_rate_), data_bits_, parity, stop_bits_);
+  uint32_t rates[3];
+  const size_t count = baud_estimator_.candidates(rates);
+  state += "; baud candidates: ";
+  if (count == 0) {
+    state += timing_complete_ || baud_estimator_.enough() ? "inconclusive" : "collecting";
+  } else {
+    for (size_t i = 0; i < count; ++i) {
+      if (i) state += ", ";
+      state += str_sprintf("%lu", static_cast<unsigned long>(rates[i]));
+    }
+    if (count > 1) state += " (ambiguous)";
+  }
+  if (state == diagnostic_state_) return;
+  diagnostic_state_ = state;
+  diagnostic_->publish_state(state);
 }
 
 void ToshibaAbLogger::set_debug_mode(const std::string &mode) {

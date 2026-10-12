@@ -51,6 +51,11 @@ class CaptureQueue {
     return true;
   }
   uint32_t dropped() const { return dropped_; }
+  bool idle() const { return !started_ && head_ == tail_; }
+  // Receiver is idle and its IRQ is masked when resetting a trial.
+  void reset_trial() {
+    tail_ = head_; active_.length = 0; active_.flags = 0; started_ = false;
+  }
 
  private:
   void IRAM_ATTR publish_(bool final, uint32_t irq_us) {
