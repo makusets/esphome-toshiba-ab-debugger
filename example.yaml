@@ -17,5 +17,5 @@ toshiba_ab:
   rx_pin: 13  # Owned hardware UART0, swapped from GPIO3.
   baud_rate: 2400
   data_bits: 8
-  parity: EVEN
+  parity: AUTO
   stop_bits: 1
