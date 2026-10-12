@@ -94,4 +94,29 @@ toshiba_ab:
   # Alternatively: diagnostic: false
 ```
 
+## Baud suggestions from RX timing
+
+The UART Settings sensor also measures intervals between RX edges and appends a
+ranked shortlist, for example:
+
+```text
+Detected: 2400 baud, 8E1; baud candidates: 2400, 4800 (ambiguous)
+```
+
+The first baud value is the configured receiver setting. **Candidates are
+suggestions only; they never change baud.** Each interval can span multiple bits,
+so faster harmonic rates can also fit. Multiple matches are marked ambiguous.
+
+The estimator needs at least 64 intervals, a consistent fit across at least 90%
+of samples, and repeated near-single-bit intervals. It compares common rates
+from 300 to 115200 plus your configured rate, and lists up to three candidates.
+Idle gaps are ignored. Insufficient or noisy timing is shown as `collecting` or
+`inconclusive`; lost timing samples are discarded before collecting fresh ones.
+Interrupt latency can distort measurements, so suggestions need bus validation.
+
+With AUTO parity, timing suggestions freeze when the one-time scan completes.
+With explicit parity, timing alone collects for at least 60 seconds and until
+there are enough samples, then freezes. Neither measurement restarts after later
+errors. Raw frame logs remain unchanged.
+
 [Test instructions](tests/README.md) cover capture behavior and configuration.

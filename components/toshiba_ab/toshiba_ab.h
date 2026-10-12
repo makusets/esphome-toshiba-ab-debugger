@@ -4,6 +4,7 @@
 #include "esphome/core/log.h"
 #include "capture_queue.h"
 #include "parity_detector.h"
+#include "baud_estimator.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 
 #include <bitset>
@@ -318,7 +319,14 @@ protected:
   void configure_uart_();  // Call with UART IRQ masked.
   void discovery_loop_();
   text_sensor::TextSensor *diagnostic_{nullptr};
-  std::string diagnostic_state_;
+  std::string diagnostic_state_, diagnostic_status_;
+  RxEdgeIntervals rx_edge_intervals_;
+  BaudEstimator baud_estimator_;
+  uint32_t timing_start_ms_{0}, reported_timing_dropped_{0};
+  bool timing_started_{false}, timing_complete_{false};
+  void process_rx_edges_();
+  void finish_edge_measurement_();
+  void refresh_diagnostic_();
   void publish_diagnostic_(const char *status);
 // noise measurements
   // -------- Metrics (5-minute sliding window, logged every 20 s) --------

@@ -106,7 +106,10 @@ void ToshibaAbLogger::setup() {
   ETS_UART_INTR_ATTACH(uart_isr_, this);
   USIE(0) = (1U << UIFF) | (1U << UITO) | (1U << UIOF) | (1U << UIPE) | (1U << UIFR);
   uart_started_ = true;
-  if (auto_parity_) {
+  baud_estimator_.set_configured(baud_rate_);
+  timing_start_ms_ = millis();
+  if (auto_parity_ || diagnostic_ != nullptr) {
+    timing_started_ = true;
     last_rx_edge_us_ = micros();
     attachInterruptArg(rx_pin_, rx_edge_isr_, this, CHANGE);
     edge_attached_ = true;
@@ -152,7 +155,10 @@ void ToshibaAbLogger::configure_uart_() {
 
 void IRAM_ATTR ToshibaAbLogger::rx_edge_isr_(void *arg) {
 #ifdef USE_ESP8266
-  static_cast<ToshibaAbLogger *>(arg)->last_rx_edge_us_ = micros();
+  auto *self = static_cast<ToshibaAbLogger *>(arg);
+  const uint32_t now_us = micros();
+  self->last_rx_edge_us_ = now_us;
+  self->rx_edge_intervals_.put(now_us);
 #endif
 }
 
@@ -421,6 +427,7 @@ void ToshibaAbLogger::log_capture_(const CapturedFrame &frame) {
 }
 
 void ToshibaAbLogger::loop() {
+  if (!timing_complete_) process_rx_edges_();
   // Bound loop work so logging a busy receiver does not starve other components.
   for (uint8_t n = 0; n < 7; ++n) {
     CapturedFrame frame;
@@ -459,6 +466,8 @@ void ToshibaAbLogger::loop() {
     }
   }
   if (auto_parity_) discovery_loop_();
+  else if (!timing_complete_ && baud_estimator_.enough() && (millis() - timing_start_ms_) >= 60000)
+    finish_edge_measurement_();
   if (debug_mode_ == DebugMode::NORMAL) {
     if ((millis() - last_master_alive_millis_) > LAST_ALIVE_TIMEOUT_MILLIS) {
       ESP_LOGW(TAG, "No master frames for a while (disconnected?)");
@@ -492,10 +501,7 @@ void ToshibaAbLogger::discovery_loop_() {
     }
   }
   ETS_UART_INTR_ENABLE();
-  if (!parity_detector_.scanning() && edge_attached_) {
-    detachInterrupt(rx_pin_);
-    edge_attached_ = false;
-  }
+  if (!parity_detector_.scanning()) finish_edge_measurement_();
   const char *parity = parity_ == 1 ? "EVEN" : (parity_ == 2 ? "ODD" : "NONE");
   if (action == Action::LOCK)
     ESP_LOGI(TAG, "Serial parity detected: %s (%lu baud)", parity, static_cast<unsigned long>(baud_rate_));
@@ -512,11 +518,66 @@ void ToshibaAbLogger::discovery_loop_() {
 #endif
 }
 
+void ToshibaAbLogger::process_rx_edges_() {
+#ifdef USE_ESP8266
+  if (!timing_started_) return;
+  ETS_GPIO_INTR_DISABLE();
+  const uint32_t dropped = rx_edge_intervals_.dropped();
+  if (dropped != reported_timing_dropped_) rx_edge_intervals_.discard();
+  ETS_GPIO_INTR_ENABLE();
+  if (dropped != reported_timing_dropped_) {
+    reported_timing_dropped_ = dropped;
+    baud_estimator_.reset();  // Lost timing samples must not bias the ranking.
+    ESP_LOGW(TAG, "RX edge timing overflow; collecting fresh timing samples");
+  }
+  // Bound loop work independently of the UART capture queue.
+  for (uint16_t i = 0; i < 255; ++i) {
+    uint32_t interval;
+    ETS_GPIO_INTR_DISABLE();
+    const bool have = rx_edge_intervals_.pop(interval);
+    ETS_GPIO_INTR_ENABLE();
+    if (!have) break;
+    baud_estimator_.observe(interval);
+  }
+  refresh_diagnostic_();
+#endif
+}
+
+void ToshibaAbLogger::finish_edge_measurement_() {
+#ifdef USE_ESP8266
+  if (timing_complete_) return;
+  if (edge_attached_) {
+    detachInterrupt(rx_pin_);
+    edge_attached_ = false;
+  }
+  process_rx_edges_();  // Include the last intervals before freezing the result.
+  timing_complete_ = true;
+  refresh_diagnostic_();
+#endif
+}
+
 void ToshibaAbLogger::publish_diagnostic_(const char *status) {
-  if (diagnostic_ == nullptr) return;
+  diagnostic_status_ = status;
+  refresh_diagnostic_();
+}
+
+void ToshibaAbLogger::refresh_diagnostic_() {
+  if (diagnostic_ == nullptr || diagnostic_status_.empty()) return;
   const char parity = parity_ == 1 ? 'E' : (parity_ == 2 ? 'O' : 'N');
-  const std::string state = str_sprintf("%s: %lu baud, %u%c%u", status,
+  std::string state = str_sprintf("%s: %lu baud, %u%c%u", diagnostic_status_.c_str(),
       static_cast<unsigned long>(baud_rate_), data_bits_, parity, stop_bits_);
+  uint32_t rates[3];
+  const size_t count = baud_estimator_.candidates(rates);
+  state += "; baud candidates: ";
+  if (count == 0) {
+    state += timing_complete_ || baud_estimator_.enough() ? "inconclusive" : "collecting";
+  } else {
+    for (size_t i = 0; i < count; ++i) {
+      if (i) state += ", ";
+      state += str_sprintf("%lu", static_cast<unsigned long>(rates[i]));
+    }
+    if (count > 1) state += " (ambiguous)";
+  }
   if (state == diagnostic_state_) return;
   diagnostic_state_ = state;
   diagnostic_->publish_state(state);
