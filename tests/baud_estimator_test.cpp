@@ -27,6 +27,31 @@ int main() {
   // Grossly inconsistent timing is inconclusive, not a baud-rate guess.
   e.reset(); for(int i=0;i<64;++i) e.observe((i%2) ? 417 : 691);
   assert(e.enough() && e.candidates(rates)==0);
+  // A common bit grid can be supported without any single-bit pulses.
+  e.reset(); for(int i=0;i<64;++i) e.observe(417*(i%2 ? 2 : 9));
+  assert(e.candidates(rates)>=1 && rates[0]==2400);
+  uint32_t pulse_matches, pulse_considered, pulse_singles;
+  e.configured_fit(pulse_matches,pulse_considered,pulse_singles);
+  assert(pulse_matches==64 && pulse_singles==0);
+  // One rare coprime run is not enough to establish the fundamental grid.
+  e.reset(); for(int i=0;i<63;++i) e.observe(417*3); e.observe(417*2);
+  assert(e.candidates(rates)==0);
+  // Long pauses within a burst must not invalidate otherwise consistent bits.
+  e.reset(); known(e,417);
+  for(int i=0;i<32;++i) e.observe(9876); // ~24 bit times, still below the 50ms burst-gap cutoff.
+  assert(e.candidates(rates)>=1 && rates[0]==2400);
+  uint32_t matches, considered, singles;
+  e.configured_fit(matches,considered,singles);
+  assert(matches==64 && considered==64 && singles==16);
+  // A slower rate must not win by fitting pauses while ignoring real short bits.
+  e.reset();
+  for(int i=0;i<80;++i) e.observe(417*(1+i%3));
+  for(int i=0;i<128;++i) e.observe(3333); // Looks like single-bit timing at 300 baud.
+  assert(e.candidates(rates)>=1 && rates[0]==2400);
+  // A small matching subset is insufficient even with many long intervals.
+  e.reset(); for(int i=0;i<16;++i) e.observe(417);
+  for(int i=0;i<100;++i) e.observe(9876);
+  assert(e.candidates(rates)==0);
   // The ISR queue preserves intervals, excludes burst gaps, and wraps uptime.
   RxEdgeIntervals q; uint32_t value;
   q.put(UINT32_MAX-100); q.put(316); assert(q.pop(value) && value==417);
