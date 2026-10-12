@@ -1,5 +1,12 @@
 #include "toshiba_ab.h"
 #include "esphome.h"
+#ifdef USE_ESP8266
+#include <Arduino.h>
+#include <esp8266_peri.h>
+extern "C" {
+#include <ets_sys.h>
+}
+#endif
 
 
 namespace esphome {
@@ -9,7 +16,6 @@ namespace toshiba_ab {
 static uint8_t tx_enable_pin = 16;  // TX enable pin, when low = receive mode, when high = transmit mode
 
 static const char *const TAG = "Toshiba logger";
-
 const LogString *opcode_to_string(uint8_t opcode) {
   switch (opcode) {
     case OPCODE_PING:
@@ -66,32 +72,93 @@ void log_raw_data(const std::string& prefix, const uint8_t raw[], size_t size) {
     std::snprintf(buf, sizeof(buf), "%02X", raw[i]);
     res += buf;
   }
-  ESP_LOGV(TAG, "%s%s", prefix.c_str(), res.c_str());
+  ESP_LOGD(TAG, "%s%s", prefix.c_str(), res.c_str());
 }
 
 
 void ToshibaAbLogger::dump_config() {
-  ESP_LOGCONFIG(TAG, "Toshiba Protocol sniffer");
+  ESP_LOGCONFIG(TAG, "Owned UART0 receiver: RX GPIO%u, %lu baud, %u data bits, parity %u, %u stop bits",
+                rx_pin_, static_cast<unsigned long>(baud_rate_), data_bits_, parity_, stop_bits_);
+  ESP_LOGCONFIG(TAG, "Silence timeout: requested %lu us, hardware %lu us; mode: %s",
+                static_cast<unsigned long>(frame_gap_us_), static_cast<unsigned long>(effective_gap_us_),
+                debug_mode_ == DebugMode::RAW ? "raw" : "normal");
 }
 
 void ToshibaAbLogger::setup() {
-  ESP_LOGD(TAG, "Setting up Toshiba Protocol sniffer...");
+#ifdef USE_ESP8266
+  // Direct register configuration: no ESPHome UART or Arduino Serial receiver.
+  ETS_UART_INTR_DISABLE();
+  USIE(0) = 0;
   pinMode(tx_enable_pin, OUTPUT);
   digitalWrite(tx_enable_pin, LOW);
-  this->can_read_packet = true;  // start consuming immediately
-  last_master_alive_millis_ = millis();  // reset last alive time
-  // Noise Metrics: only enable in NORMAL mode (disabled in RAW/debug)
-  if (this->debug_mode_ == DebugMode::NORMAL) {
-    this->metric_window_start_ms_ = millis();
-    this->metric_bucket_start_ms_ = this->metric_window_start_ms_;
-    this->metric_failed_live_     = 0;
-    this->metric_noise_live_      = 0;
-    this->data_reader.set_noise_counter(&this->metric_noise_live_);
+  if (rx_pin_ == 13) {
+    pinMode(13, FUNCTION_4);
+    IOSWAP |= (1U << IOSWAPU0);
   } else {
-    this->data_reader.set_noise_counter(nullptr);
+    pinMode(3, SPECIAL);
+    IOSWAP &= ~(1U << IOSWAPU0);
   }
+  // Only the RX pin is muxed; TX is never enabled on a GPIO.
+  USD(0) = (80000000UL + baud_rate_ / 2) / baud_rate_;
+  uint32_t config = (static_cast<uint32_t>(data_bits_ - 5) << UCBN) |
+                    (static_cast<uint32_t>(stop_bits_ == 1 ? 1 : 3) << UCSBN);
+  if (parity_ != 0)
+    config |= (1U << UCPAE) | (parity_ == 2 ? (1U << UCPA) : 0);
+  USC0(0) = config | (1U << UCRXRST) | (1U << UCTXRST);
+  USC0(0) = config;
+  const uint32_t bits = 1 + data_bits_ + (parity_ != 0) + stop_bits_;
+  const uint32_t symbols = (static_cast<uint64_t>(frame_gap_us_) * baud_rate_ + bits * 1000000 - 1) /
+                           (bits * 1000000);
+  effective_gap_us_ = (symbols * bits * 1000000UL + baud_rate_ - 1) / baud_rate_;
+  // Interrupt after two bytes. Keep one in the FIFO when draining so the UART
+  // silence detector stays armed even during arbitrarily long captures.
+  USC1(0) = (2U << UCFFT) | (symbols << UCTOT) | (1U << UCTOE);
+  USIC(0) = 0xffff;
+  ETS_UART_INTR_ATTACH(uart_isr_, this);
+  USIE(0) = (1U << UIFF) | (1U << UITO) | (1U << UIOF) | (1U << UIPE) | (1U << UIFR);
+  uart_started_ = true;
+  ETS_UART_INTR_ENABLE();
+#else
+  this->mark_failed();
+#endif
+  last_master_alive_millis_ = millis();
+  metric_window_start_ms_ = millis();
+  metric_bucket_start_ms_ = metric_window_start_ms_;
+  data_reader.set_noise_counter(debug_mode_ == DebugMode::NORMAL ? &metric_noise_live_ : nullptr);
 }
 
+void IRAM_ATTR ToshibaAbLogger::uart_isr_(void *arg) {
+#ifdef USE_ESP8266
+  auto *self = static_cast<ToshibaAbLogger *>(arg);
+  const uint32_t status = USIS(0);
+  const uint32_t now_us = micros();
+  if (status & (1U << UIOF)) self->capture_.error(CaptureQueue::FIFO_LOSS);
+  if (status & (1U << UIPE)) self->capture_.error(CaptureQueue::PARITY_ERROR);
+  if (status & (1U << UIFR)) self->capture_.error(CaptureQueue::FRAMING_ERROR);
+  const bool idle = status & (1U << UITO);
+  uint32_t count = (USS(0) >> USRXC) & 0xff;
+  // Snapshot and bound the work; leave one byte unless this is a silence IRQ.
+  if (!idle && count > 0) --count;
+  for (uint32_t i = 0; i < count; ++i)
+    self->capture_.put(static_cast<uint8_t>(USF(0)), now_us);
+  if (idle)
+    self->capture_.finish(now_us);
+  USIC(0) = status;
+#endif
+}
+
+void ToshibaAbLogger::on_shutdown() {
+#ifdef USE_ESP8266
+  if (uart_started_) {
+    ETS_UART_INTR_DISABLE();
+    USIE(0) = 0;
+    USC1(0) = 0;
+    USIC(0) = 0xffff;
+    ETS_UART_INTR_ATTACH(nullptr, nullptr);
+    uart_started_ = false;
+  }
+#endif
+}
 
 void ToshibaAbLogger::process_received_data(const struct DataFrame *frame) {
   if (frame->source == this->master_address_) {
@@ -285,125 +352,58 @@ void ToshibaAbLogger::metrics_roll_and_log_() {
 }
 // -------------------------------------------------------------------  
 
+void ToshibaAbLogger::log_capture_(const CapturedFrame &frame) {
+  const std::string prefix = str_sprintf(
+      "RAW %s id=%lu first_irq_us=%lu boundary_irq_us=%lu bytes=%u errors=0x%02X: ",
+      frame.final ? "FRAME-END" : "OVERFLOW-FRAGMENT", static_cast<unsigned long>(frame.frame_id),
+      static_cast<unsigned long>(frame.first_irq_us), static_cast<unsigned long>(frame.boundary_irq_us),
+      frame.length, frame.flags);
+  log_raw_data(prefix, frame.data, frame.length);
+}
+
 void ToshibaAbLogger::loop() {
-
-  uint8_t bytes_read = 0;
-
-  while (available()) {
-    int byte = read();
-    if (byte >= 0) {
-      bytes_read++;
-      // RAW debug mode: bypass parser entirely and only collect/log raw frames
-      if (this->debug_mode_ == DebugMode::RAW) {
-        this->time_frame_put(static_cast<uint8_t>(byte));
+  // Bound loop work so logging a busy receiver does not starve other components.
+  for (uint8_t n = 0; n < 7; ++n) {
+    CapturedFrame frame;
+#ifdef USE_ESP8266
+    ETS_UART_INTR_DISABLE();
+#endif
+    const bool have_frame = capture_.pop(frame);
+    const uint32_t dropped = capture_.dropped();
+#ifdef USE_ESP8266
+    ETS_UART_INTR_ENABLE();
+#endif
+    if (dropped != reported_dropped_) {
+      ESP_LOGW(TAG, "Capture queue overflow: %lu records dropped; capture is incomplete",
+               static_cast<unsigned long>(dropped - reported_dropped_));
+      reported_dropped_ = dropped;
+      data_reader.reset();
+    }
+    if (!have_frame)
+      break;
+    if (debug_mode_ == DebugMode::RAW) {
+      log_capture_(frame);
+    } else {
+      if (frame.flags) {
+        ESP_LOGW(TAG, "UART capture errors: 0x%02X; skipping damaged fragment", frame.flags);
+        data_reader.reset();
         continue;
       }
-
-      if (!can_read_packet)
-        continue;  // wait until can read packet
-
-      if (data_reader.put(byte)) {
-        // packet complete
-        last_received_frame_millis_ = millis();
-        auto frame = data_reader.frame;
-        if (!receive_data_frame(&frame)) {
+      for (size_t i = 0; i < frame.length; ++i) {
+        if (data_reader.put(frame.data[i])) {
+          receive_data_frame(&data_reader.frame);
+          data_reader.reset();
         }
-        data_reader.reset();
-
-        // finished processing this packet; exit to avoid long loops
-        break;
       }
-    } else {
-      ESP_LOGW(TAG, "Unable to read data");
+      if (frame.final) data_reader.reset();
     }
   }
-
-  if (bytes_read > 0) {
-    loops_with_reads_++;
-    loops_without_reads_ = 0;
-
-    // ESP_LOGV(TAG, "Bytes of data read: %d", bytes_read);
-    // if (!data_reader.complete) {
-    //   log_data_frame("Pending", data_reader.frame);
-    // }
-
-    last_read_millis_ = millis();
-  } else {
-    loops_without_reads_++;
-    loops_with_reads_ = 0;
-
-    if (last_read_millis_ > 0) {
-      auto millis_since_last_read = millis() - last_read_millis_;
-      if (millis_since_last_read >= PACKET_MIN_WAIT_MILLIS) {
-        // can start reading packet
-
-        if (!data_reader.complete && data_reader.data_index_ > 0) {
-          // ESP_LOGW(TAG, "Reset pending frame buffer (%d)",
-          // data_reader.data_index_); log_raw_data("Pending: ",
-          // data_reader.frame.raw, data_reader.data_index_);
-        }
-        can_read_packet = true;
-        data_reader.reset();
-        // flush any pending time-based raw frame if we've been idle
-        this->time_frame_flush_if_idle(millis());
-        last_read_millis_ = 0;
-      }
-    }
-  }
-
-  if (this->debug_mode_ == DebugMode::NORMAL) {
-    if (last_master_alive_millis_ > 0 && (millis() - last_master_alive_millis_) > LAST_ALIVE_TIMEOUT_MILLIS) {
+  if (debug_mode_ == DebugMode::NORMAL) {
+    if ((millis() - last_master_alive_millis_) > LAST_ALIVE_TIMEOUT_MILLIS) {
       ESP_LOGW(TAG, "No master frames for a while (disconnected?)");
-      last_master_alive_millis_ = millis();  // reset last alive time
+      last_master_alive_millis_ = millis();
     }
-    // Roll noise metrics & log every ~20 s
-    this->metrics_roll_and_log_();
-  }
-}
-
-
-// Time-based raw frame builder implementation
-// RAW mode: accumulate bytes using timing; when a sufficiently large gap is
-// observed (>= PACKET_MIN_WAIT_MILLIS) treat the accumulated bytes as a
-// complete raw frame and log it (ignoring the length byte). Partial buffers
-// are logged on gap/idle instead of being dropped silently.
-void ToshibaAbLogger::time_frame_put(uint8_t byte) {
-  const uint32_t now = millis();
-
-  if (!this->time_frame_buf_.empty()) {
-    const uint32_t gap = now - this->time_frame_last_byte_ms_;
-    if (gap >= PACKET_MIN_WAIT_MILLIS) {
-      // Consider previous bytes a complete frame and log them
-      if (this->time_frame_buf_.size() >= 3) {
-        log_raw_data("TIME-FRAME-GAP:", this->time_frame_buf_.data(), this->time_frame_buf_.size());
-      }
-      this->time_frame_buf_.clear();
-    }
-  }
-
-  // Append byte to current buffer
-  if (this->time_frame_buf_.size() < DATA_FRAME_MAX_SIZE) {
-    this->time_frame_buf_.push_back(byte);
-  } else {
-    // Buffer full: log and start new
-    log_raw_data("TIME-FRAME-TRUNC:", this->time_frame_buf_.data(), this->time_frame_buf_.size());
-    this->time_frame_buf_.clear();
-    this->time_frame_buf_.push_back(byte);
-  }
-
-  this->time_frame_last_byte_ms_ = now;
-}
-
-void ToshibaAbLogger::time_frame_flush_if_idle(uint32_t now_ms) {
-  if (this->time_frame_buf_.empty())
-    return;
-
-  if ((now_ms - this->time_frame_last_byte_ms_) >= PACKET_MIN_WAIT_MILLIS) {
-    if (this->time_frame_buf_.size() >= 3) {
-      log_raw_data("TIME-FRAME-FLUSH:", this->time_frame_buf_.data(), this->time_frame_buf_.size());
-    }
-    this->time_frame_buf_.clear();
-    this->time_frame_last_byte_ms_ = 0;
+    metrics_roll_and_log_();
   }
 }
 

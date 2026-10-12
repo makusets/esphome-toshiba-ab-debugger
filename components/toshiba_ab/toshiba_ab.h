@@ -1,6 +1,8 @@
 #pragma once
 
-#include "esphome/components/uart/uart.h"
+#include "esphome/core/component.h"
+#include "esphome/core/log.h"
+#include "capture_queue.h"
 
 #include <bitset>
 #include <queue>
@@ -13,7 +15,6 @@ namespace toshiba_ab {
 const uint32_t ALIVE_MESSAGE_PERIOD_MILLIS = 5000;
 const uint32_t LAST_ALIVE_TIMEOUT_MILLIS = ALIVE_MESSAGE_PERIOD_MILLIS * 3 + 1000;
 
-const uint32_t PACKET_MIN_WAIT_MILLIS = 10;
 
 
 // const uint8_t TOSHIBA_MASTER = 0x00;  replaced by master_address_ which is setup in yaml
@@ -259,7 +260,7 @@ private:
 };
 
 
-class ToshibaAbLogger : public Component, public uart::UARTDevice {
+class ToshibaAbLogger : public Component {
 
  public:
 
@@ -274,6 +275,13 @@ class ToshibaAbLogger : public Component, public uart::UARTDevice {
   // Debug mode: "normal" (parser) or "raw" (time-based frame builder)
   enum class DebugMode { NORMAL = 0, RAW = 1 };
   void set_debug_mode(const std::string &mode);
+  void set_frame_gap(uint32_t gap_us) { frame_gap_us_ = gap_us; }
+  void set_uart_config(uint8_t pin, uint32_t baud, uint8_t bits, uint8_t parity, uint8_t stops) {
+    rx_pin_ = pin; baud_rate_ = baud; data_bits_ = bits; parity_ = parity; stop_bits_ = stops;
+  }
+  void on_shutdown() override;
+  static void IRAM_ATTR uart_isr_(void *arg);
+
 
   bool receive_data(std::vector<uint8_t> data);
   bool receive_data_frame(const struct DataFrame *frame);
@@ -289,16 +297,13 @@ protected:
 //  CallbackManager<void(const struct DataFrame *frame)> set_data_received_callback_{};
 
  private:
-  DebugMode debug_mode_ = DebugMode::NORMAL;
-  // Time-based raw frame builder: accumulate bytes that arrive with small
-  // inter-byte gaps; a large gap signals a frame boundary and causes the
-  // accumulated raw frame to be logged.
-  void time_frame_put(uint8_t byte);
-  void time_frame_flush_if_idle(uint32_t now_ms);
-
-  std::vector<uint8_t> time_frame_buf_;
-  uint32_t time_frame_last_byte_ms_{0};
-  static constexpr uint32_t TIME_FRAME_BYTE_GAP_MS = 5;  // ms between bytes allowed for same frame
+  DebugMode debug_mode_ = DebugMode::RAW;
+  CaptureQueue capture_;
+  uint8_t rx_pin_{13}, data_bits_{8}, parity_{1}, stop_bits_{1};
+  uint32_t baud_rate_{2400}, frame_gap_us_{20000}, effective_gap_us_{0};
+  uint32_t reported_dropped_{0};
+  bool uart_started_{false};
+  void log_capture_(const CapturedFrame &frame);
 // noise measurements
   // -------- Metrics (5-minute sliding window, logged every 20 s) --------
   static constexpr uint32_t METRIC_BUCKET_MS = 20 * 1000;  // 20 s
@@ -320,11 +325,6 @@ protected:
 
 
 
-  uint32_t loops_without_reads_ = 0;
-  uint32_t loops_with_reads_ = 0;
-  uint32_t last_read_millis_ = 0;
-  bool can_read_packet = false;
-  uint32_t last_received_frame_millis_ = 0;
   uint32_t last_master_alive_millis_ = 0;
 
 
