@@ -353,12 +353,17 @@ void ToshibaAbLogger::metrics_roll_and_log_() {
 // -------------------------------------------------------------------  
 
 void ToshibaAbLogger::log_capture_(const CapturedFrame &frame) {
-  const std::string prefix = str_sprintf(
-      "RAW %s id=%lu first_irq_us=%lu boundary_irq_us=%lu bytes=%u errors=0x%02X: ",
-      frame.final ? "FRAME-END" : "OVERFLOW-FRAGMENT", static_cast<unsigned long>(frame.frame_id),
-      static_cast<unsigned long>(frame.first_irq_us), static_cast<unsigned long>(frame.boundary_irq_us),
-      frame.length, frame.flags);
-  log_raw_data(prefix, frame.data, frame.length);
+  if (frame.flags & CaptureQueue::FIFO_LOSS)
+    ESP_LOGW(TAG, "UART FIFO overflow: some received bytes were lost");
+  if (frame.flags & CaptureQueue::PARITY_ERROR)
+    ESP_LOGW(TAG, "UART parity error: received data may be damaged");
+  if (frame.flags & CaptureQueue::FRAMING_ERROR)
+    ESP_LOGW(TAG, "UART framing error: check baud rate and serial settings");
+  if (frame.flags & CaptureQueue::QUEUE_LOSS)
+    ESP_LOGW(TAG, "Capture queue loss: received data is incomplete");
+  if (!frame.final)
+    ESP_LOGW(TAG, "Frame exceeds 128 bytes; logging in fragments");
+  log_raw_data("", frame.data, frame.length);
 }
 
 void ToshibaAbLogger::loop() {
