@@ -15,7 +15,9 @@ inline uint32_t fake_now = 0;
 inline bool in_irq = false;
 inline std::vector<std::string> logs;
 inline uint32_t micros() { return fake_now; }
-inline uint32_t millis() { return fake_now / 1000; }
+inline bool override_millis=false;
+inline uint32_t fake_millis=0;
+inline uint32_t millis() { return override_millis ? fake_millis : fake_now / 1000; }
 inline std::string str_sprintf(const char *fmt, ...) {
   char buf[2048]; va_list ap; va_start(ap,fmt);
   vsnprintf(buf,sizeof(buf),fmt,ap); va_end(ap); return buf;

@@ -79,6 +79,8 @@ void log_raw_data(const std::string& prefix, const uint8_t raw[], size_t size) {
 void ToshibaAbLogger::dump_config() {
   ESP_LOGCONFIG(TAG, "Owned UART0 receiver: RX GPIO%u, %lu baud, %u data bits, parity %u, %u stop bits",
                 rx_pin_, static_cast<unsigned long>(baud_rate_), data_bits_, parity_, stop_bits_);
+  if (startup_timing_)
+    ESP_LOGCONFIG(TAG, "Startup GPIO timing active; UART RX is paused (maximum 20 seconds)");
   ESP_LOGCONFIG(TAG, "Silence timeout: requested %lu us, hardware %lu us; mode: %s",
                 static_cast<unsigned long>(frame_gap_us_), static_cast<unsigned long>(effective_gap_us_),
                 debug_mode_ == DebugMode::RAW ? "raw" : "normal");
@@ -86,11 +88,36 @@ void ToshibaAbLogger::dump_config() {
 
 void ToshibaAbLogger::setup() {
 #ifdef USE_ESP8266
-  // Direct register configuration: no ESPHome UART or Arduino Serial receiver.
   ETS_UART_INTR_DISABLE();
   USIE(0) = 0;
+  USC1(0) = 0;
+  USIC(0) = 0xffff;
   pinMode(tx_enable_pin, OUTPUT);
   digitalWrite(tx_enable_pin, LOW);
+  baud_estimator_.set_configured(baud_rate_);
+  if (auto_parity_ || diagnostic_ != nullptr) {
+    // The UART-muxed pad cannot supply GPIO edge IRQs on this hardware.
+    // Measure once in real GPIO mode, without enabling UART reception.
+    pinMode(rx_pin_, INPUT_PULLUP);
+    timing_start_ms_ = millis();
+    last_rx_edge_us_ = micros();
+    timing_started_ = startup_timing_ = true;
+    attachInterruptArg(rx_pin_, rx_edge_isr_, this, CHANGE);
+    edge_attached_ = true;
+    ESP_LOGI(TAG, "Measuring RX timing at startup; UART reception paused for up to 20 seconds");
+    publish_diagnostic_("Measuring RX timing (UART paused)");
+  } else {
+    timing_complete_ = true;
+    start_uart_();
+  }
+#else
+  this->mark_failed();
+#endif
+}
+
+void ToshibaAbLogger::start_uart_() {
+#ifdef USE_ESP8266
+  ETS_UART_INTR_DISABLE();
   if (rx_pin_ == 13) {
     pinMode(13, FUNCTION_4);
     IOSWAP |= (1U << IOSWAPU0);
@@ -99,24 +126,14 @@ void ToshibaAbLogger::setup() {
     IOSWAP &= ~(1U << IOSWAPU0);
   }
   if (auto_parity_) {
-    parity_detector_.start(millis());
-    parity_ = 1;  // Always begin discovery with EVEN at the configured baud.
+    parity_detector_.start(millis());  // The 20-second trials start after sampling.
+    parity_ = 1;
   }
   configure_uart_();
   ETS_UART_INTR_ATTACH(uart_isr_, this);
   USIE(0) = (1U << UIFF) | (1U << UITO) | (1U << UIOF) | (1U << UIPE) | (1U << UIFR);
   uart_started_ = true;
-  baud_estimator_.set_configured(baud_rate_);
-  timing_start_ms_ = millis();
-  if (auto_parity_ || diagnostic_ != nullptr) {
-    timing_started_ = true;
-    last_rx_edge_us_ = micros();
-    attachInterruptArg(rx_pin_, rx_edge_isr_, this, CHANGE);
-    edge_attached_ = true;
-  }
   ETS_UART_INTR_ENABLE();
-#else
-  this->mark_failed();
 #endif
   if (auto_parity_)
     ESP_LOGI(TAG, "Serial parity discovery: EVEN, ODD, NONE; baud fixed at %lu", static_cast<unsigned long>(baud_rate_));
@@ -125,6 +142,23 @@ void ToshibaAbLogger::setup() {
   metric_window_start_ms_ = millis();
   metric_bucket_start_ms_ = metric_window_start_ms_;
   data_reader.set_noise_counter(debug_mode_ == DebugMode::NORMAL ? &metric_noise_live_ : nullptr);
+}
+
+void ToshibaAbLogger::startup_timing_loop_() {
+#ifdef USE_ESP8266
+  process_rx_edges_();
+  const bool quiet = digitalRead(rx_pin_) == HIGH && (micros() - last_rx_edge_us_) >= frame_gap_us_;
+  uint32_t candidates[3];
+  const bool enough_timing = baud_estimator_.candidates(candidates) != 0;
+  const bool expired = (millis() - timing_start_ms_) >= 20000;
+  if (!expired && !(quiet && enough_timing)) return;
+  // At the deadline restore RX even if a burst is in progress. Do not log its
+  // tail as a complete frame: discard through the first hardware silence IRQ.
+  discard_handoff_frame_ = !quiet;
+  finish_edge_measurement_();
+  startup_timing_ = false;
+  start_uart_();
+#endif
 }
 
 void ToshibaAbLogger::configure_uart_() {
@@ -167,6 +201,19 @@ void IRAM_ATTR ToshibaAbLogger::uart_isr_(void *arg) {
   auto *self = static_cast<ToshibaAbLogger *>(arg);
   const uint32_t status = USIS(0);
   const uint32_t now_us = micros();
+  if (self->discard_handoff_frame_) {
+    const bool idle = status & (1U << UITO);
+    uint32_t count = (USS(0) >> USRXC) & 0xff;
+    if (!idle && count > 0) --count;
+    for (uint32_t i = 0; i < count; ++i) {
+      const uint8_t discarded = static_cast<uint8_t>(USF(0));
+      (void) discarded;
+    }
+    self->last_rx_activity_us_ = now_us;
+    if (idle) self->discard_handoff_frame_ = false;
+    USIC(0) = status;
+    return;
+  }
   if (status & (1U << UIOF)) {
     self->capture_.error(CaptureQueue::FIFO_LOSS);
     ++self->rx_sample_.losses;
@@ -205,6 +252,7 @@ void IRAM_ATTR ToshibaAbLogger::uart_isr_(void *arg) {
 
 void ToshibaAbLogger::on_shutdown() {
 #ifdef USE_ESP8266
+  startup_timing_ = false;
   if (edge_attached_) {
     detachInterrupt(rx_pin_);
     edge_attached_ = false;
@@ -427,7 +475,11 @@ void ToshibaAbLogger::log_capture_(const CapturedFrame &frame) {
 }
 
 void ToshibaAbLogger::loop() {
-  if (!timing_complete_) process_rx_edges_();
+  if (startup_timing_) {
+    startup_timing_loop_();
+    return;
+  }
+  if (!uart_started_) return;
   // Bound loop work so logging a busy receiver does not starve other components.
   for (uint8_t n = 0; n < 7; ++n) {
     CapturedFrame frame;
@@ -466,8 +518,6 @@ void ToshibaAbLogger::loop() {
     }
   }
   if (auto_parity_) discovery_loop_();
-  else if (!timing_complete_ && (millis() - timing_start_ms_) >= 60000)
-    finish_edge_measurement_();
   if (debug_mode_ == DebugMode::NORMAL) {
     if ((millis() - last_master_alive_millis_) > LAST_ALIVE_TIMEOUT_MILLIS) {
       ESP_LOGW(TAG, "No master frames for a while (disconnected?)");
@@ -483,12 +533,13 @@ void ToshibaAbLogger::discovery_loop_() {
   if (!parity_detector_.scanning()) return;
   ETS_UART_INTR_DISABLE();
   // A queued record, active frame, FIFO byte, or recent activity postpones a
-  // settings change. Read the UART RXD status, not the GPIO input register:
+  // settings change. Edge capture has finished; GPIO does not monitor UART RX.
+  // Read the UART RXD status, not the GPIO input register:
   // GPIO digitalRead can read LOW while the pad is muxed to UART.
   // No partial frame is ever used as discovery evidence.
   const bool idle = capture_.idle() && active_rx_bytes_ == 0 && ((USS(0) >> USRXC) & 0xff) == 0 &&
                     (micros() - last_rx_activity_us_) >= effective_gap_us_ &&
-                    (micros() - last_rx_edge_us_) >= effective_gap_us_ && (USS(0) & (1U << USRXD)) != 0;
+                    (USS(0) & (1U << USRXD)) != 0;
   Action action = Action::NONE;
   bool waiting_for_traffic = false;
   if (idle) {
@@ -503,7 +554,6 @@ void ToshibaAbLogger::discovery_loop_() {
     }
   }
   ETS_UART_INTR_ENABLE();
-  if (!parity_detector_.scanning()) finish_edge_measurement_();
   const char *parity = parity_ == 1 ? "EVEN" : (parity_ == 2 ? "ODD" : "NONE");
   if (action == Action::LOCK)
     ESP_LOGI(TAG, "Serial parity detected: %s (%lu baud)", parity, static_cast<unsigned long>(baud_rate_));
@@ -554,7 +604,6 @@ void ToshibaAbLogger::finish_edge_measurement_() {
   }
   process_rx_edges_();  // Include the last intervals before freezing the result.
   timing_complete_ = true;
-  refresh_diagnostic_();
 #endif
 }
 
