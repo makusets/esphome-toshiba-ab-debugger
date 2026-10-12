@@ -6,9 +6,30 @@ ESPHome handles Wi-Fi, OTA, and logging; the component owns hardware UART0.
 
 ## Setup
 
-Add this to your existing ESPHome device configuration:
+ESPHome device configuration:
 
 ```yaml
+esphome:
+  name: toshiba-debugger
+  friendly_name: toshiba_debugger
+
+esp8266:
+  board: esp12e
+
+
+# Enable Home Assistant API
+api:
+
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  output_power: 10dB            #lower transmission power, reduces noise on AB line
+
+
 logger:
   baud_rate: 0
   level: DEBUG
@@ -27,12 +48,8 @@ toshiba_ab:
 ```
 
 Remove any previous `uart:` section. RX uses GPIO13 through UART0 pin swapping;
-GPIO3 is also supported. This component only receives and holds GPIO16 low for
-boards that use it as the transceiver enable. Use an appropriate bus interface;
 hardware information is in the [main repository](https://github.com/makusets/esphome-toshiba-ab/tree/main/hardware).
 
-See [example.yaml](example.yaml) for a minimal local configuration. Keep your
-existing Wi-Fi, API, and OTA settings to view logs and update the device remotely.
 
 ## Frames and timing
 
@@ -56,7 +73,6 @@ Frames over 128 bytes are logged in fragments with a warning. The receiver still
 captures boundaries before logging; long interrupt delays can hide traffic gaps.
 
 Optional settings are `data_bits` (5–8, default 8), `stop_bits` (1 or 2, default 1),
-and `parity` (`NONE`, `EVEN`, or `ODD`). `debug_mode: normal` enables the original
-Toshiba length/CRC parser; `master` selects its master address.
+and `parity` (`NONE`, `EVEN`, or `ODD`).
 
 [Test instructions](tests/README.md) cover capture behavior and configuration.
