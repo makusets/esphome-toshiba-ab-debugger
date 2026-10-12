@@ -323,7 +323,10 @@ protected:
   RxEdgeIntervals rx_edge_intervals_;
   BaudEstimator baud_estimator_;
   uint32_t timing_start_ms_{0}, reported_timing_dropped_{0};
-  bool timing_started_{false}, timing_complete_{false};
+  bool timing_started_{false}, timing_complete_{false}, startup_timing_{false};
+  bool discard_handoff_frame_{false};
+  void start_uart_();
+  void startup_timing_loop_();
   void process_rx_edges_();
   void finish_edge_measurement_();
   void refresh_diagnostic_();
