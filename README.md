@@ -17,6 +17,7 @@ logger:
 external_components:
   - source: github://makusets/esphome-toshiba-ab-debugger
     components: [toshiba_ab]
+    refresh: 0s
 
 toshiba_ab:
   rx_pin: 13
