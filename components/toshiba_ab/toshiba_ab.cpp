@@ -572,7 +572,18 @@ void ToshibaAbLogger::refresh_diagnostic_() {
   const size_t count = baud_estimator_.candidates(rates);
   state += "; baud candidates: ";
   if (count == 0) {
-    state += timing_complete_ || baud_estimator_.enough() ? "inconclusive" : "collecting";
+    if (!timing_complete_) {
+      state += baud_estimator_.enough() ? "inconclusive" : "collecting";
+    } else if (rx_edge_intervals_.edges() == 0) {
+      state += "unavailable (no RX edge interrupts)";
+    } else if (baud_estimator_.samples() == 0) {
+      state += "inconclusive (no usable edge intervals)";
+    } else if (!baud_estimator_.enough()) {
+      state += str_sprintf("inconclusive (%lu/64 timing samples)",
+                          static_cast<unsigned long>(baud_estimator_.samples()));
+    } else {
+      state += "inconclusive (no confident timing match)";
+    }
   } else {
     for (size_t i = 0; i < count; ++i) {
       if (i) state += ", ";
