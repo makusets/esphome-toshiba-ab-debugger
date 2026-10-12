@@ -466,7 +466,7 @@ void ToshibaAbLogger::loop() {
     }
   }
   if (auto_parity_) discovery_loop_();
-  else if (!timing_complete_ && baud_estimator_.enough() && (millis() - timing_start_ms_) >= 60000)
+  else if (!timing_complete_ && (millis() - timing_start_ms_) >= 60000)
     finish_edge_measurement_();
   if (debug_mode_ == DebugMode::NORMAL) {
     if ((millis() - last_master_alive_millis_) > LAST_ALIVE_TIMEOUT_MILLIS) {
@@ -483,10 +483,12 @@ void ToshibaAbLogger::discovery_loop_() {
   if (!parity_detector_.scanning()) return;
   ETS_UART_INTR_DISABLE();
   // A queued record, active frame, FIFO byte, or recent activity postpones a
-  // settings change. No partial frame is ever used as discovery evidence.
+  // settings change. Read the UART RXD status, not the GPIO input register:
+  // GPIO digitalRead can read LOW while the pad is muxed to UART.
+  // No partial frame is ever used as discovery evidence.
   const bool idle = capture_.idle() && active_rx_bytes_ == 0 && ((USS(0) >> USRXC) & 0xff) == 0 &&
                     (micros() - last_rx_activity_us_) >= effective_gap_us_ &&
-                    (micros() - last_rx_edge_us_) >= effective_gap_us_ && digitalRead(rx_pin_) == HIGH;
+                    (micros() - last_rx_edge_us_) >= effective_gap_us_ && (USS(0) & (1U << USRXD)) != 0;
   Action action = Action::NONE;
   bool waiting_for_traffic = false;
   if (idle) {

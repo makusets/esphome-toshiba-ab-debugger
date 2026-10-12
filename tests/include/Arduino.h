@@ -11,7 +11,8 @@ inline void digitalWrite(uint8_t,int) {}
 #define HIGH 1
 #define CHANGE 4
 inline int rx_level = HIGH;
-inline int digitalRead(uint8_t) { return rx_level; }
+inline int gpio_read_level = -1;
+inline int digitalRead(uint8_t) { return gpio_read_level < 0 ? rx_level : gpio_read_level; }
 inline void (*edge_callback)(void *)=nullptr;
 inline void *edge_arg=nullptr;
 inline void attachInterruptArg(uint8_t, void (*f)(void *), void *a, int) { edge_callback=f; edge_arg=a; }
