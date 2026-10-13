@@ -631,7 +631,12 @@ void ToshibaAbLogger::refresh_diagnostic_() {
       state += str_sprintf("inconclusive (%lu/64 timing samples)",
                           static_cast<unsigned long>(baud_estimator_.samples()));
     } else {
-      state += "inconclusive (no confident timing match)";
+      uint32_t matches, considered, singles;
+      baud_estimator_.configured_fit(matches, considered, singles);
+      state += str_sprintf("inconclusive (no confident timing match; configured fit %lu/%lu, one-bit %lu, too-short %lu)",
+                          static_cast<unsigned long>(matches), static_cast<unsigned long>(considered),
+                          static_cast<unsigned long>(singles),
+                          static_cast<unsigned long>(baud_estimator_.configured_short_pulses()));
     }
   } else {
     for (size_t i = 0; i < count; ++i) {

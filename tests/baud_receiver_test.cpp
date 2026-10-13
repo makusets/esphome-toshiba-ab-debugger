@@ -74,7 +74,7 @@ int main() {
     fake_now+=(i%2 ? 417 : 691); in_irq=true; edge_callback(edge_arg); in_irq=false;
   }
   unmatched.loop(); fake_now=20000000; unmatched.loop();
-  assert(bad_timing.state.find("inconclusive (no confident timing match)")!=std::string::npos);
+  assert(bad_timing.state.find("inconclusive (no confident timing match;")!=std::string::npos);
   unmatched.on_shutdown();
   // Lost intervals reset the evidence, then fresh GPIO-mode samples can recover.
   ToshibaAbLogger loss; TextSensor lossy; loss.set_diagnostic(&lossy);
