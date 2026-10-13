@@ -8,16 +8,18 @@ namespace esphome { namespace toshiba_ab {
 // GPIO ISR producer, loop consumer. Mask GPIO IRQ while popping/discarding.
 class RxEdgeIntervals {
  public:
-  void IRAM_ATTR put(uint32_t now_us) {
+  void IRAM_ATTR put(uint32_t now_us, bool rising) {
     ++edges_;
     const uint32_t delta = now_us - previous_us_;
     previous_us_ = now_us;
     if (!seen_) { seen_ = true; return; }
     // Ignore zero-duration callbacks and long inter-burst idle periods.
-    if (delta == 0 || delta >= 50000) return;
+    if (delta == 0 || delta >= 50000) { continuous_ = false; return; }
     const uint16_t next = (head_ + 1) & 255;
-    if (next == tail_) { ++dropped_; return; }
-    intervals_[head_] = delta;
+    if (next == tail_) { ++dropped_; continuous_ = false; return; }
+    // Pack direction and a discontinuity marker alongside the pulse width.
+    intervals_[head_] = delta | (uint32_t(rising) << 16) | (uint32_t(!continuous_) << 17);
+    continuous_ = true;
     __asm__ __volatile__("" ::: "memory");
     head_ = next;
   }
@@ -33,13 +35,14 @@ class RxEdgeIntervals {
   uint32_t intervals_[256]{}, previous_us_{0};
   volatile uint16_t head_{0}, tail_{0};
   volatile uint32_t dropped_{0}, edges_{0};
-  bool seen_{false};
+  bool seen_{false}, continuous_{false};
 };
 
 // Timing suggestions only: no UART configuration is changed here. Arithmetic,
 // ranking, and text formatting run outside the interrupt handler.
-class BaudEstimator {
+class BaudTimingGrid {
  public:
+  void set_minimum_bits(uint32_t bits) { minimum_bits_ = bits; }
   void set_configured(uint32_t baud) {
     for (size_t i = 0; i < 10; ++i) {
       if (rates_[i] == baud) { configured_index_ = i; rate_count_ = 10; return; }
@@ -59,7 +62,7 @@ class BaudEstimator {
     for (size_t i = 0; i < rate_count_; ++i) {
       const uint64_t scaled = static_cast<uint64_t>(interval_us) * rates_[i];
       const uint32_t bits = (scaled + 500000) / 1000000;
-      if (bits == 0) { ++too_short_[i]; continue; }
+      if (bits < minimum_bits_) { ++too_short_[i]; continue; }
       // Longer intervals may be idle gaps, not failed bit timing. Score only
       // the 1..12-bit range, requiring enough in-range evidence per candidate.
       if (bits > 12) continue;
@@ -120,6 +123,59 @@ class BaudEstimator {
   size_t rate_count_{10};
   uint32_t matches_[11]{}, singles_[11]{}, considered_[11]{}, too_short_[11]{}, total_{0};
   uint8_t configured_index_{3};
+  uint32_t minimum_bits_{1};
+};
+
+// Preserve raw pulse evidence, and independently score complete low+high cycles.
+// Same-direction intervals cancel a consistent difference in rise/fall delays.
+class BaudEstimator : public BaudTimingGrid {
+ public:
+  BaudEstimator() { cycles_.set_minimum_bits(2); }
+  void set_configured(uint32_t baud) {
+    BaudTimingGrid::set_configured(baud); cycles_.set_configured(baud);
+  }
+  void reset() {
+    BaudTimingGrid::reset(); cycles_.reset(); previous_width_ = 0;
+    rising_cycles_ = falling_cycles_ = 0;
+    low_min_ = high_min_ = UINT32_MAX; low_max_ = high_max_ = 0;
+  }
+  void observe_edge(uint32_t packed) {
+    const uint32_t width = packed & 65535;
+    const bool rising = packed & (1U << 16);
+    const bool discontinuity = packed & (1U << 17);
+    if (discontinuity) previous_width_ = 0;
+    observe(width);
+    uint32_t &minimum = rising ? low_min_ : high_min_;
+    uint32_t &maximum = rising ? low_max_ : high_max_;
+    if (width < minimum) minimum = width;
+    if (width > maximum) maximum = width;
+    // Repeated levels imply an unobserved transition. Never join across it.
+    if (previous_width_ && rising != previous_rising_) {
+      cycles_.observe(previous_width_ + width);
+      if (rising) ++rising_cycles_; else ++falling_cycles_;
+    }
+    previous_width_ = width; previous_rising_ = rising;
+  }
+  size_t candidates(uint32_t out[3]) const {
+    const size_t raw = BaudTimingGrid::candidates(out);
+    if (raw) return raw;
+    // Require both directions and retain the same confidence/fundamental rules.
+    if (rising_cycles_ < 32 || falling_cycles_ < 32) return 0;
+    return cycles_.candidates(out);
+  }
+  void cycle_fit(uint32_t &matched, uint32_t &considered) const {
+    uint32_t singles; cycles_.configured_fit(matched, considered, singles);
+  }
+  void pulse_ranges(uint32_t &low_min, uint32_t &low_max,
+                    uint32_t &high_min, uint32_t &high_max) const {
+    low_min = low_min_ == UINT32_MAX ? 0 : low_min_; low_max = low_max_;
+    high_min = high_min_ == UINT32_MAX ? 0 : high_min_; high_max = high_max_;
+  }
+ private:
+  BaudTimingGrid cycles_;
+  uint32_t previous_width_{0}, rising_cycles_{0}, falling_cycles_{0};
+  uint32_t low_min_{UINT32_MAX}, low_max_{0}, high_min_{UINT32_MAX}, high_max_{0};
+  bool previous_rising_{false};
 };
 
 }}  // namespace esphome::toshiba_ab
