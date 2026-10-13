@@ -192,7 +192,7 @@ void IRAM_ATTR ToshibaAbLogger::rx_edge_isr_(void *arg) {
   auto *self = static_cast<ToshibaAbLogger *>(arg);
   const uint32_t now_us = micros();
   self->last_rx_edge_us_ = now_us;
-  self->rx_edge_intervals_.put(now_us);
+  self->rx_edge_intervals_.put(now_us, digitalRead(self->rx_pin_) == HIGH);
 #endif
 }
 
@@ -589,7 +589,7 @@ void ToshibaAbLogger::process_rx_edges_() {
     const bool have = rx_edge_intervals_.pop(interval);
     ETS_GPIO_INTR_ENABLE();
     if (!have) break;
-    baud_estimator_.observe(interval);
+    baud_estimator_.observe_edge(interval);
   }
   refresh_diagnostic_();
 #endif
@@ -633,9 +633,8 @@ void ToshibaAbLogger::refresh_diagnostic_() {
     } else {
       uint32_t matches, considered, singles;
       baud_estimator_.configured_fit(matches, considered, singles);
-      state += str_sprintf("inconclusive (no confident timing match; configured fit %lu/%lu, one-bit %lu, too-short %lu)",
+      state += str_sprintf("inconclusive (no confident timing match; pulse fit %lu/%lu, short %lu)",
                           static_cast<unsigned long>(matches), static_cast<unsigned long>(considered),
-                          static_cast<unsigned long>(singles),
                           static_cast<unsigned long>(baud_estimator_.configured_short_pulses()));
     }
   } else {
@@ -644,6 +643,15 @@ void ToshibaAbLogger::refresh_diagnostic_() {
       state += str_sprintf("%lu", static_cast<unsigned long>(rates[i]));
     }
     if (count > 1) state += " (ambiguous)";
+  }
+  if (timing_complete_ && baud_estimator_.samples() != 0) {
+    uint32_t matches, considered, low_min, low_max, high_min, high_max;
+    baud_estimator_.cycle_fit(matches, considered);
+    baud_estimator_.pulse_ranges(low_min, low_max, high_min, high_max);
+    state += str_sprintf("; cycle fit %lu/%lu; L %lu-%luus, H %lu-%luus",
+        static_cast<unsigned long>(matches), static_cast<unsigned long>(considered),
+        static_cast<unsigned long>(low_min), static_cast<unsigned long>(low_max),
+        static_cast<unsigned long>(high_min), static_cast<unsigned long>(high_max));
   }
   if (state == diagnostic_state_) return;
   diagnostic_state_ = state;

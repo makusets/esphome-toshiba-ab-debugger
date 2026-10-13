@@ -54,12 +54,30 @@ int main() {
   assert(e.candidates(rates)==0);
   // The ISR queue preserves intervals, excludes burst gaps, and wraps uptime.
   RxEdgeIntervals q; uint32_t value;
-  q.put(UINT32_MAX-100); q.put(316); assert(q.pop(value) && value==417);
-  q.put(5000316); assert(!q.pop(value));
-  q.put(5000733); assert(q.pop(value) && value==417);
+  q.put(UINT32_MAX-100, true); q.put(316, true); assert(q.pop(value) && (value & 65535)==417);
+  q.put(5000316, true); assert(!q.pop(value));
+  q.put(5000733, true); assert(q.pop(value) && (value & 65535)==417);
   uint32_t now=5000733;
-  for(int i=0;i<256;++i) { now+=417; q.put(now); }
+  for(int i=0;i<256;++i) { now+=417; q.put(now, true); }
   assert(q.dropped()==1); q.discard(); assert(!q.pop(value));
-  for(int i=0;i<1000;++i) { now+=417; q.put(now); assert(q.pop(value) && value==417); }
+  for(int i=0;i<1000;++i) { now+=417; q.put(now, true); assert(q.pop(value) && (value & 65535)==417); }
+  // Opposite-edge offsets spoil pulse fits but cancel in complete cycles.
+  e.reset();
+  for (uint32_t i=0; i<160; ++i) {
+    const uint32_t bits[]={1,1,2,1,3,2,1,3};
+    const bool rising=i%2;
+    const uint32_t width=417*bits[i%8]+(rising ? 150 : -150);
+    e.observe_edge(width | (uint32_t(rising)<<16));
+  }
+  assert(e.candidates(rates)>=1 && rates[0]==2400);
+  e.cycle_fit(matches,considered); assert(matches==considered && considered>=64);
+  // Missing transitions and burst boundaries must not create false cycles.
+  e.reset(); for(int i=0;i<160;++i) e.observe_edge(567 | (1U<<16));
+  e.cycle_fit(matches,considered); assert(considered==0);
+  e.reset(); for(int i=0;i<160;++i) e.observe_edge(567 | ((i%2)<<16) | (1U<<17));
+  e.cycle_fit(matches,considered); assert(considered==0);
+  // Alternating single-bit cycles alone cannot resolve the fundamental baud.
+  e.reset(); for(int i=0;i<160;++i) e.observe_edge((i%2 ? 567 : 267) | ((i%2)<<16));
+  assert(e.candidates(rates)==0);
   puts("PASS: edge timing, standard/custom candidates, harmonic ambiguity, insufficient/inconsistent evidence, queue loss, gaps, timestamp and ring wrap");
 }
